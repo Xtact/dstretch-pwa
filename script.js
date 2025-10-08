@@ -15,13 +15,10 @@ imageLoader.addEventListener('change', function(event) {
         reader.onload = function(e) {
             imageDisplay.src = e.target.result;
             imageDisplay.onload = () => {
-                // Once the image is loaded, we can enable the enhance button
                 enhanceBtn.disabled = false;
-                // Prepare the canvas for processing
                 canvas.width = imageDisplay.naturalWidth;
                 canvas.height = imageDisplay.naturalHeight;
                 ctx.drawImage(imageDisplay, 0, 0);
-                // Store the raw pixel data
                 originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             };
         };
@@ -36,11 +33,22 @@ enhanceBtn.addEventListener('click', function() {
         return;
     }
     
-    // --- STEP 1: Get Pixel Data ---
-    const imageData = originalImageData.data; // This is a giant array of [R,G,B,A, R,G,B,A, ...]
-    
     console.log("Starting enhancement...");
-    console.log("Total pixels to process:", imageData.length / 4);
+    
+    // Organize the raw pixel data
+    const imageData = originalImageData.data;
+    const reds = [];
+    const greens = [];
+    const blues = [];
+    
+    for (let i = 0; i < imageData.length; i += 4) {
+        reds.push(imageData[i]);
+        greens.push(imageData[i + 1]);
+        blues.push(imageData[i + 2]);
+        // We ignore imageData[i + 3], the Alpha channel
+    }
+    
+    console.log("Pixel data organized into R, G, B arrays.");
 
     // The next steps of the algorithm will go here
 });
