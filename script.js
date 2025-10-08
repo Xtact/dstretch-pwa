@@ -141,3 +141,71 @@ enhanceBtn.addEventListener('click', function() {
     
     console.log("Enhancement complete.");
 });
+// ... (keep all the previous code)
+
+// --- NEW: Get the slider elements ---
+const brightnessSlider = document.getElementById('brightness');
+const contrastSlider = document.getElementById('contrast');
+const saturationSlider = document.getElementById('saturation');
+
+// --- NEW: Function to apply all filters ---
+function applyFilters() {
+    const brightness = brightnessSlider.value / 100;
+    const contrast = contrastSlider.value / 100;
+    const saturation = saturationSlider.value / 100;
+    
+    // Apply filters to both the visible image and the hidden canvas
+    const filterString = `brightness(${brightness}) contrast(${contrast}) saturate(${saturation})`;
+    imageDisplay.style.filter = filterString;
+    ctx.filter = filterString; // So the DStretch effect is applied to the filtered image
+}
+
+// --- NEW: Add event listeners to sliders ---
+brightnessSlider.addEventListener('input', applyFilters);
+contrastSlider.addEventListener('input', applyFilters);
+saturationSlider.addEventListener('input', applyFilters);
+
+// --- UPDATE the imageLoader event listener ---
+imageLoader.addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imageDisplay.src = e.target.result;
+            imageDisplay.onload = () => {
+                // Reset filters and sliders for the new image
+                brightnessSlider.value = 100;
+                contrastSlider.value = 100;
+                saturationSlider.value = 100;
+                applyFilters();
+
+                enhanceBtn.disabled = false;
+                canvas.width = imageDisplay.naturalWidth;
+                canvas.height = imageDisplay.naturalHeight;
+
+                // Important: Draw the image to the canvas AFTER applying filters
+                ctx.filter = imageDisplay.style.filter;
+                ctx.drawImage(imageDisplay, 0, 0);
+                originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            };
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// --- UPDATE the enhanceBtn event listener ---
+enhanceBtn.addEventListener('click', function() {
+    if (!originalImageData) {
+        alert("Please upload an image first.");
+        return;
+    }
+    
+    console.log("Starting enhancement...");
+
+    // Redraw the image on the canvas with the latest filters before processing
+    ctx.filter = imageDisplay.style.filter;
+    ctx.drawImage(imageDisplay, 0, 0, canvas.width, canvas.height);
+    originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // ... (The rest of the DStretch logic remains the same)
+});
