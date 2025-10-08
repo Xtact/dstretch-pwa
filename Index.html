@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dstretch Plus</title>
+    <style>
+        /* --- General Body & Font Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Header & Main Content Area --- */
+        header {
+            width: 100%;
+            max-width: 680px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #333;
+        }
+
+        main {
+            width: 100%;
+            max-width: 680px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        /* --- Control Section (Buttons, etc.) --- */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 30px;
+        }
+        
+        .controls p {
+            margin: 0 0 15px 0;
+            font-size: 1.1rem;
+            color: #555;
+        }
+
+        /* --- Custom File Upload Button --- */
+        input[type="file"] {
+            display: none; /* Hide the default ugly button */
+        }
+
+        .upload-btn {
+            background-color: #007aff;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .upload-btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- Image Display Area --- */
+        .image-container {
+            width: 100%;
+            min-height: 200px;
+            background-color: #f7f7f7;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #imageDisplay {
+            max-width: 100%;
+            max-height: 100%;
+            display: none; /* Hide it until an image is loaded */
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Dstretch Plus ✨</h1>
+    </header>
+
+    <main>
+        <div class="controls">
+            <p>1. Upload an image to enhance:</p>
+            <input type="file" id="imageLoader" accept="image/*">
+            <label for="imageLoader" class="upload-btn">Choose Image</label>
+        </div>
+
+        <div class="image-container">
+            <img id="imageDisplay" alt="Your uploaded image appears here">
+        </div>
+    </main>
+
+    <script>
+        // Get the important HTML elements
+        const imageLoader = document.getElementById('imageLoader');
+        const imageDisplay = document.getElementById('imageDisplay');
+        
+        // Listen for when a file is chosen
+        imageLoader.addEventListener('change', function(event) {
+            // Get the file that was selected
+            const file = event.target.files[0];
+            
+            if (file) {
+                // Create a URL for the local file
+                const imageUrl = URL.createObjectURL(file);
+                
+                // Put the image into our display box and make it visible
+                imageDisplay.src = imageUrl;
+                imageDisplay.style.display = 'block';
+            }
+        });
+    </script>
+
+</body>
+</html>
