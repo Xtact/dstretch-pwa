@@ -26,70 +26,13 @@ imageLoader.addEventListener('change', function(event) {
     }
 });
 
-/**
- * Calculates the average (mean) of an array of numbers.
- * @param {number[]} array The array of numbers.
- * @returns {number} The mean of the array.
- */
+// --- HELPER FUNCTIONS ---
+
 function calculateMean(array) {
     const sum = array.reduce((acc, val) => acc + val, 0);
     return sum / array.length;
 }
 
-// Logic for the enhancement
-enhanceBtn.addEventListener('click', function() {
-    if (!originalImageData) {
-        alert("Please upload an image first.");
-        return;
-    }
-    
-    console.log("Starting enhancement...");
-    
-    // 1. Organize the raw pixel data
-    const imageData = originalImageData.data;
-    const reds = [];
-    const greens = [];
-    const blues = [];
-    
-    for (let i = 0; i < imageData.length; i += 4) {
-        reds.push(imageData[i]);
-        greens.push(imageData[i + 1]);
-        blues.push(imageData[i + 2]);
-    }
-    
-    console.log("Pixel data organized.");
-
-    // 2. Calculate statistics (Part A: Means)
-    const meanRed = calculateMean(reds);
-    const meanGreen = calculateMean(greens);
-    const meanBlue = calculateMean(blues);
-
-    console.log("Means calculated:", { meanRed, meanGreen, meanBlue });
-
-    // The next steps of the algorithm will go here
-});
-// ... (previous code from the last step remains the same)
-
-/**
- * Calculates the average (mean) of an array of numbers.
- * @param {number[]} array The array of numbers.
- * @returns {number} The mean of the array.
- */
-function calculateMean(array) {
-    const sum = array.reduce((acc, val) => acc + val, 0);
-    return sum / array.length;
-}
-
-/**
- * Calculates the 3x3 covariance matrix for the R, G, B channels.
- * @param {number[]} reds Array of red values.
- * @param {number[]} greens Array of green values.
- * @param {number[]} blues Array of blue values.
- * @param {number} meanRed Mean of the red channel.
- * @param {number} meanGreen Mean of the green channel.
- * @param {number} meanBlue Mean of the blue channel.
- * @returns {number[][]} A 3x3 covariance matrix.
- */
 function calculateCovarianceMatrix(reds, greens, blues, meanRed, meanGreen, meanBlue) {
     const n = reds.length;
     let cov_rr = 0, cov_gg = 0, cov_bb = 0;
@@ -108,57 +51,23 @@ function calculateCovarianceMatrix(reds, greens, blues, meanRed, meanGreen, mean
         cov_gb += dG * dB;
     }
 
-    // Finalize the covariance values
-    cov_rr /= (n - 1);
-    cov_gg /= (n - 1);
-    cov_bb /= (n - 1);
-    cov_rg /= (n - 1);
-    cov_rb /= (n - 1);
-    cov_gb /= (n - 1);
-
+    const divisor = n - 1;
     return [
-        [cov_rr, cov_rg, cov_rb],
-        [cov_rg, cov_gg, cov_gb], // cov_rg is the same as cov_gr
-        [cov_rb, cov_gb, cov_bb]  // cov_rb is the same as cov_br, etc.
+        [cov_rr / divisor, cov_rg / divisor, cov_rb / divisor],
+        [cov_rg / divisor, cov_gg / divisor, cov_gb / divisor],
+        [cov_rb / divisor, cov_gb / divisor, cov_bb / divisor]
     ];
 }
 
-// Logic for the enhancement
-enhanceBtn.addEventListener('click', function() {
-    // ... (code to organize pixels and calculate means)
-
-    // 2. Calculate statistics (Part B: Covariance Matrix)
-    const covarianceMatrix = calculateCovarianceMatrix(reds, greens, blues, meanRed, meanGreen, meanBlue);
-
-    console.log("Covariance Matrix calculated:", covarianceMatrix);
-
-    // The next steps of the algorithm will go here
-});// ... (all the previous code remains the same)
-
-/**
- * Calculates the 3x3 covariance matrix for the R, G, B channels.
-// ... (previous function)
- */
-function calculateCovarianceMatrix(reds, greens, blues, meanRed, meanGreen, meanBlue) {
-    // ... (function content is the same)
-}
-
-/**
- * Performs eigen-decomposition on a matrix.
- * @param {number[][]} matrix The matrix to decompose.
- * @returns {object} An object containing eigenvectors and eigenvalues.
- */
 function eigenDecomposition(matrix) {
     try {
         const result = math.eigs(matrix);
-        // The library returns eigenvectors as columns, so we can use them directly.
         return {
             eigenvectors: result.vectors,
             eigenvalues: result.values
         };
     } catch (error) {
         console.error("Error during eigen-decomposition:", error);
-        // Return a default "identity" matrix if the calculation fails
         return {
             eigenvectors: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
             eigenvalues: [1, 1, 1]
@@ -166,17 +75,69 @@ function eigenDecomposition(matrix) {
     }
 }
 
+// --- MAIN ENHANCEMENT LOGIC ---
 
-// Logic for the enhancement
 enhanceBtn.addEventListener('click', function() {
-    // ... (code to organize pixels, calculate means, and calculate covariance matrix)
+    if (!originalImageData) {
+        alert("Please upload an image first.");
+        return;
+    }
+    
+    console.log("Starting enhancement...");
+    
+    // 1. Organize the raw pixel data
+    const imageData = originalImageData.data;
+    const reds = [], greens = [], blues = [];
+    for (let i = 0; i < imageData.length; i += 4) {
+        reds.push(imageData[i]);
+        greens.push(imageData[i + 1]);
+        blues.push(imageData[i + 2]);
+    }
+    
+    // 2. Calculate statistics
+    const meanRed = calculateMean(reds);
+    const meanGreen = calculateMean(greens);
+    const meanBlue = calculateMean(blues);
+    const covarianceMatrix = calculateCovarianceMatrix(reds, greens, blues, meanRed, meanGreen, meanBlue);
 
     // 3. Perform the Transformation (Eigen-decomposition)
-    const { eigenvectors, eigenvalues } of eigenDecomposition(covarianceMatrix);
+    const { eigenvectors, eigenvalues } = eigenDecomposition(covarianceMatrix);
 
-    console.log("Eigenvectors:", eigenvectors);
-    console.log("Eigenvalues:", eigenvalues);
+    // 4. Apply the Stretch to every pixel
+    const newPixelData = new Uint8ClampedArray(imageData.length);
+    const stretchAmount = 50.0; // Target standard deviation, can be a user setting later
 
-    // The final steps of applying the stretch will go here
+    for (let i = 0; i < reds.length; i++) {
+        const r = reds[i] - meanRed;
+        const g = greens[i] - meanGreen;
+        const b = blues[i] - meanBlue;
+
+        // Project pixel onto eigenvectors
+        let p1 = r * eigenvectors[0][0] + g * eigenvectors[1][0] + b * eigenvectors[2][0];
+        let p2 = r * eigenvectors[0][1] + g * eigenvectors[1][1] + b * eigenvectors[2][1];
+        let p3 = r * eigenvectors[0][2] + g * eigenvectors[1][2] + b * eigenvectors[2][2];
+
+        // Stretch the projected values
+        p1 *= (stretchAmount / Math.sqrt(eigenvalues[0]));
+        p2 *= (stretchAmount / Math.sqrt(eigenvalues[1]));
+        p3 *= (stretchAmount / Math.sqrt(eigenvalues[2]));
+
+        // Rotate back to RGB coordinate system
+        const newR = p1 * eigenvectors[0][0] + p2 * eigenvectors[0][1] + p3 * eigenvectors[0][2] + meanRed;
+        const newG = p1 * eigenvectors[1][0] + p2 * eigenvectors[1][1] + p3 * eigenvectors[1][2] + meanGreen;
+        const newB = p1 * eigenvectors[2][0] + p2 * eigenvectors[2][1] + p3 * eigenvectors[2][2] + meanBlue;
+
+        const pixelIndex = i * 4;
+        newPixelData[pixelIndex] = newR;     // Red
+        newPixelData[pixelIndex + 1] = newG; // Green
+        newPixelData[pixelIndex + 2] = newB; // Blue
+        newPixelData[pixelIndex + 3] = 255;  // Alpha (fully opaque)
+    }
+
+    // 5. Display the Result
+    const newImageData = new ImageData(newPixelData, canvas.width, canvas.height);
+    ctx.putImageData(newImageData, 0, 0);
+    imageDisplay.src = canvas.toDataURL(); // Update the visible image
+    
+    console.log("Enhancement complete.");
 });
-
