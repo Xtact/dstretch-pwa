@@ -26,7 +26,17 @@ imageLoader.addEventListener('change', function(event) {
     }
 });
 
-// We'll add the enhancement logic here
+/**
+ * Calculates the average (mean) of an array of numbers.
+ * @param {number[]} array The array of numbers.
+ * @returns {number} The mean of the array.
+ */
+function calculateMean(array) {
+    const sum = array.reduce((acc, val) => acc + val, 0);
+    return sum / array.length;
+}
+
+// Logic for the enhancement
 enhanceBtn.addEventListener('click', function() {
     if (!originalImageData) {
         alert("Please upload an image first.");
@@ -35,7 +45,7 @@ enhanceBtn.addEventListener('click', function() {
     
     console.log("Starting enhancement...");
     
-    // Organize the raw pixel data
+    // 1. Organize the raw pixel data
     const imageData = originalImageData.data;
     const reds = [];
     const greens = [];
@@ -45,10 +55,16 @@ enhanceBtn.addEventListener('click', function() {
         reds.push(imageData[i]);
         greens.push(imageData[i + 1]);
         blues.push(imageData[i + 2]);
-        // We ignore imageData[i + 3], the Alpha channel
     }
     
-    console.log("Pixel data organized into R, G, B arrays.");
+    console.log("Pixel data organized.");
+
+    // 2. Calculate statistics (Part A: Means)
+    const meanRed = calculateMean(reds);
+    const meanGreen = calculateMean(greens);
+    const meanBlue = calculateMean(blues);
+
+    console.log("Means calculated:", { meanRed, meanGreen, meanBlue });
 
     // The next steps of the algorithm will go here
 });
