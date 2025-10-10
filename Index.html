@@ -3,49 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dstretch Plus</title>
+    <title>Dstretch Pro</title>
     <link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js" defer></script>
+    <script src="script.js" defer></script>
 </head>
 <body>
+    <div class="app-container">
+        <header class="app-header">
+            <button class="header-btn">Cancel</button>
+            <div class="header-icons">
+                </div>
+            <span class="header-title">Colorspace</span>
+            <div class="header-icons-right">
+                </div>
+            <button class="header-btn done">Done</button>
+        </header>
 
-    <header>
-        <h1>Dstretch Plus ✨</h1>
-    </header>
+        <main class="image-workspace">
+            <div class="image-container">
+                <canvas id="canvas"></canvas>
+                <img id="imageDisplay" alt="Upload an image to begin">
+            </div>
+        </main>
 
-    <main>
-        <div class="controls">
-            <p>1. Upload an image to enhance:</p>
-            <input type="file" id="imageLoader" accept="image/*">
-            <label for="imageLoader" class="upload-btn">Choose Image</label>
-        </div>
+        <footer class="app-footer">
+            <div id="colorspace-panel" class="control-panel active">
+                <div class="carousel">
+                    </div>
+                <div class="slider">
+                    <label for="stretch">Stretch</label>
+                    <input type="range" id="stretch" min="1" max="100" value="50">
+                </div>
+            </div>
+            <div id="adjust-panel" class="control-panel">
+                <div class="slider-controls">
+                    <div class="slider">
+                        <label for="brightness">Brightness</label>
+                        <input type="range" id="brightness" min="0" max="200" value="100">
+                    </div>
+                    <div class="slider">
+                        <label for="contrast">Contrast</label>
+                        <input type="range" id="contrast" min="0" max="200" value="100">
+                    </div>
+                    <div class="slider">
+                        <label for="saturation">Saturation</label>
+                        <input type="range" id="saturation" min="0" max="200" value="100">
+                    </div>
+                </div>
+            </div>
+            <div id="tools-panel" class="control-panel">
+                <p>More tools coming soon!</p>
+            </div>
 
-        <div class="image-container">
-            <canvas id="canvas"></canvas>
-            <img id="imageDisplay" alt="Your uploaded image appears here">
-        </div>
+            <nav class="main-nav">
+                <button class="nav-tab active" data-panel="colorspace-panel">Colorspace</button>
+                <button class="nav-tab" data-panel="adjust-panel">Adjust</button>
+                <button class="nav-tab" data-panel="tools-panel">Tools</button>
+            </nav>
+        </footer>
         
-        <div class="enhancement-controls">
-            <button id="enhanceBtn" class="action-btn" disabled>Enhance Image</button>
-        </div>
-        <div class="slider-controls">
-    <div class="slider">
-        <label for="brightness">Brightness</label>
-        <input type="range" id="brightness" min="0" max="200" value="100">
+        <input type="file" id="imageLoader" accept="image/*" style="display: none;">
     </div>
-    <div class="slider">
-        <label for="contrast">Contrast</label>
-        <input type="range" id="contrast" min="0" max="200" value="100">
-    </div>
-    <div class="slider">
-        <label for="saturation">Saturation</label>
-        <input type="range" id="saturation" min="0" max="200" value="100">
-    </div>
-</div>
-
-    </main>
-    
-    <script src="script.js"></script>
-
 </body>
 </html>
