@@ -116,3 +116,27 @@ canvas { display: none; }
 .nav-tab.active {
     color: #ffd60a;
 }
+/* Add these styles to the end of your style.css file */
+.carousel {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    padding-bottom: 15px; /* For the scrollbar */
+    gap: 10px;
+}
+.cs-btn {
+    padding: 8px 15px;
+    border: 1px solid #555;
+    background-color: #3a3a3c;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap; /* Prevents button text from wrapping */
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.cs-btn.active {
+    background-color: #007aff;
+    border-color: #007aff;
+    font-weight: 600;
+}
