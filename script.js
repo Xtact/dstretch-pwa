@@ -5,6 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const navTabs = document.querySelectorAll('.nav-tab');
     const controlPanels = document.querySelectorAll('.control-panel');
     const headerTitle = document.querySelector('.header-title');
+const colorspaceButtons = document.querySelectorAll('.cs-btn');
+
+// --- NEW: Colorspace Selection Logic ---
+let selectedColorspace = 'RGB'; // Default colorspace
+
+colorspaceButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        // Remove active class from all buttons
+        colorspaceButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to the clicked button
+        button.classList.add('active');
+        // Store the selected colorspace
+        selectedColorspace = button.dataset.colorspace;
+        console.log("Selected Colorspace:", selectedColorspace);
+    });
+});
 
     // --- Tab Navigation Logic ---
     navTabs.forEach(tab => {
