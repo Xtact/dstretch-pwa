@@ -140,3 +140,31 @@ canvas { display: none; }
     border-color: #007aff;
     font-weight: 600;
 }
+/* Add this to the end of style.css */
+
+/* --- Responsive Design for Landscape Mode --- */
+@media (orientation: landscape) and (max-height: 500px) {
+    :root {
+        --footer-height: 120px; /* Make footer shorter */
+        --nav-height: 40px;
+    }
+
+    .image-workspace {
+        padding: 10px;
+    }
+
+    .slider-controls {
+        display: flex;
+        flex-wrap: wrap; /* Allow sliders to wrap onto the next line */
+        justify-content: space-between;
+    }
+
+    .slider {
+        width: 48%; /* Make each slider take up half the width */
+        margin-bottom: 5px;
+    }
+
+    .slider label {
+        flex: 0 0 70px; /* Slightly smaller label */
+    }
+}
