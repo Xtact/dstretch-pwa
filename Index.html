@@ -11,38 +11,27 @@
 <body>
     <div class="app-container">
         <header class="app-header">
-    <button class="header-btn">Cancel</button>
-    <div class="header-icons">
-        </div>
-    <span class="header-title">Colorspace</span>
-    <div class="header-icons-right">
-        </div>
-    </header>
+            <button class="header-btn">Cancel</button>
             <span class="header-title">Colorspace</span>
-            <div class="header-icons-right">
-                </div>
-            <button class="header-btn done">Done</button>
-        </header>
+            </header>
 
         <main class="image-workspace">
             <div class="image-container">
                 <canvas id="canvas"></canvas>
-                <img id="imageDisplay" alt="Upload an image to begin">
+                <img id="imageDisplay" alt="Tap to upload an image">
             </div>
         </main>
 
         <footer class="app-footer">
             <div id="colorspace-panel" class="control-panel active">
                 <div class="carousel">
-    <button class="cs-btn active" data-colorspace="RGB">RGB</button>
-    <button class="cs-btn" data-colorspace="LAB">LAB</button>
-    <button class="cs-btn" data-colorspace="YRE">YRE</button>
-    <button class="cs-btn" data-colorspace="LRE">LRE</button>
-    <button class="cs-btn" data-colorspace="CRGB">CRGB</button>
-    <button class="cs-btn" data-colorspace="YBK">YBK</button>
-</div>
-                <div class="carousel">
-                    </div>
+                    <button class="cs-btn active" data-colorspace="RGB">RGB</button>
+                    <button class="cs-btn" data-colorspace="LAB">LAB</button>
+                    <button class="cs-btn" data-colorspace="YRE">YRE</button>
+                    <button class="cs-btn" data-colorspace="LRE">LRE</button>
+                    <button class="cs-btn" data-colorspace="CRGB">CRGB</button>
+                    <button class="cs-btn" data-colorspace="YBK">YBK</button>
+                </div>
                 <div class="slider">
                     <label for="stretch">Stretch</label>
                     <input type="range" id="stretch" min="1" max="100" value="50">
