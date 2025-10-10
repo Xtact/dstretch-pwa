@@ -140,8 +140,6 @@ canvas { display: none; }
     border-color: #007aff;
     font-weight: 600;
 }
-/* Add this to the end of style.css */
-
 /* --- Responsive Design for Landscape Mode --- */
 @media (orientation: landscape) and (max-height: 500px) {
     :root {
