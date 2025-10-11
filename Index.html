@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dstretch Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dstretch AI Pro</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js" defer></script>
     <script src="script.js" defer></script>
@@ -11,9 +11,14 @@
 <body>
     <div class="app-container">
         <header class="app-header">
-            <button class="header-btn">Cancel</button>
-            <span class="header-title">Colorspace</span>
-            </header>
+            <button class="header-btn" id="cancel-btn">Cancel</button>
+            <div class="history-controls">
+                <button class="icon-btn" id="undo-btn" disabled>⟲</button>
+                <button class="icon-btn" id="redo-btn" disabled>⟳</button>
+            </div>
+            <span class="header-title">Dstretch AI Pro</span>
+            <button class="icon-btn" id="download-btn">↓</button>
+        </header>
 
         <main class="image-workspace">
             <div class="image-container">
@@ -38,24 +43,17 @@
                 </div>
             </div>
             <div id="adjust-panel" class="control-panel">
-                <div class="slider-controls">
-                    <div class="slider">
-                        <label for="brightness">Brightness</label>
-                        <input type="range" id="brightness" min="0" max="200" value="100">
-                    </div>
-                    <div class="slider">
-                        <label for="contrast">Contrast</label>
-                        <input type="range" id="contrast" min="0" max="200" value="100">
-                    </div>
-                    <div class="slider">
-                        <label for="saturation">Saturation</label>
-                        <input type="range" id="saturation" min="0" max="200" value="100">
-                    </div>
+                <div class="slider-grid">
+                    <div class="slider"><label for="exposure">Exposure</label><input type="range" id="exposure" min="50" max="150" value="100"></div>
+                    <div class="slider"><label for="shadows">Shadows</label><input type="range" id="shadows" min="0" max="100" value="0"></div>
+                    <div class="slider"><label for="brightness">Brightness</label><input type="range" id="brightness" min="50" max="150" value="100"></div>
+                    <div class="slider"><label for="contrast">Contrast</label><input type="range" id="contrast" min="50" max="150" value="100"></div>
+                    <div class="slider"><label for="blackPoint">Black Point</label><input type="range" id="blackPoint" min="0" max="50" value="0"></div>
+                    <div class="slider"><label for="saturation">Saturation</label><input type="range" id="saturation" min="0" max="200" value="100"></div>
+                    <div class="slider"><label for="sharpen">Sharpen</label><input type="range" id="sharpen" min="0" max="100" value="0"></div>
                 </div>
             </div>
-            <div id="tools-panel" class="control-panel">
-                <p>More tools coming soon!</p>
-            </div>
+            <div id="tools-panel" class="control-panel"><p>More tools coming soon!</p></div>
 
             <nav class="main-nav">
                 <button class="nav-tab active" data-panel="colorspace-panel">Colorspace</button>
