@@ -13,29 +13,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const navTabs = document.querySelectorAll('.nav-tab');
     const controlPanels = document.querySelectorAll('.control-panel');
     const colorspaceButtons = document.querySelectorAll('.cs-btn');
-    const superResBtn = document.getElementById('super-res-btn');
-    const toolStatus = document.getElementById('tool-status');
+    // Removed AI elements: superResBtn, toolStatus
 
     // --- State ---
-    let originalImageSrc = null; // Pristine uploaded or last AI upscaled src
+    let originalImageSrc = null; // Pristine uploaded src
     let history = [];
     let historyIndex = -1;
     let selectedColorspace = 'RGB';
     let debouncedProcess;
-    let superResModel = null;
-    let isModelLoading = false;
-    let isModelLoaded = false;
     let isImageLoaded = false;
-    let tfReady = false;
+    // Removed AI state variables
 
     // --- Debounce ---
-    const debounce = (func, delay) => { /* ... unchanged ... */ };
+    const debounce = (func, delay) => {
+        let timeout;
+        return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); };
+    };
 
     // --- History ---
-    const updateHistory = (dataUrl) => { /* ... unchanged ... */ };
-    const updateUndoRedoButtons = () => { /* ... unchanged ... */ };
-    const undo = () => { /* ... unchanged ... */ };
-    const redo = () => { /* ... unchanged ... */ };
+    const updateHistory = (dataUrl) => {
+        if (history.length > 0 && history[historyIndex] === dataUrl) return;
+        history.splice(historyIndex + 1); history.push(dataUrl); historyIndex++;
+        updateUndoRedoButtons();
+    };
+    const updateUndoRedoButtons = () => { undoBtn.disabled = historyIndex <= 0; redoBtn.disabled = historyIndex === history.length - 1; };
+    const undo = () => { if (historyIndex > 0) { historyIndex--; imageDisplay.src = history[historyIndex]; updateUndoRedoButtons(); } };
+    const redo = () => { if (historyIndex < history.length - 1) { historyIndex++; imageDisplay.src = history[historyIndex]; updateUndoRedoButtons(); } };
 
     // --- Core Listeners ---
     const setupCoreEventListeners = () => {
@@ -45,16 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             controlPanels.forEach(p => p.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById(tab.dataset.panel).classList.add('active');
-            if (tab.dataset.panel === 'tools-panel') {
-                updateToolStatus(); // Update status text
-                // Attempt to load model only when tab clicked AND not already loaded/loading
-                if (tfReady && !isModelLoaded && !isModelLoading) {
-                    loadSuperResModel();
-                } else if (!tfReady) {
-                     console.warn("AI Tab: TFJS not ready.");
-                     updateToolStatus(); // Show appropriate error
-                }
-            }
+            // Removed AI tab specific logic
         }));
 
         if (imageDisplay && imageLoader) {
@@ -63,45 +57,60 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Upload listeners ready.");
         } else { console.error("Missing critical display/loader elements!"); return; }
 
-        colorspaceButtons.forEach(button => button.addEventListener('click', () => { /* ... unchanged ... */ }));
+        colorspaceButtons.forEach(button => button.addEventListener('click', () => {
+            colorspaceButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active'); selectedColorspace = button.dataset.colorspace;
+            if (originalImageSrc) debouncedProcess(true); // Process and add history
+        }));
+
         debouncedProcess = debounce(processImage, 400);
-        allSliders.forEach(slider => { /* ... unchanged ... */ });
-        imageDisplay.addEventListener('pointerdown', () => { /* ... unchanged ... */ });
-        imageDisplay.addEventListener('pointerup', () => { /* ... unchanged ... */ });
-        imageDisplay.addEventListener('pointerleave', () => { /* ... unchanged ... */ });
+        allSliders.forEach(slider => {
+            if (slider.id !== 'sharpen') { // Exclude disabled sharpen slider
+                 slider.addEventListener('input', () => { if (originalImageSrc) debouncedProcess(false); }); // Process in real time
+                 slider.addEventListener('change', () => { if (originalImageSrc) setTimeout(() => updateHistory(imageDisplay.src), 50); }); // Add history on release
+            }
+        });
+
+        imageDisplay.addEventListener('pointerdown', () => { if (originalImageSrc && history.length > 0 && historyIndex >= 0) imageDisplay.src = originalImageSrc; });
+        imageDisplay.addEventListener('pointerup', () => { if (originalImageSrc && history.length > 0 && historyIndex >= 0) imageDisplay.src = history[historyIndex]; });
+        imageDisplay.addEventListener('pointerleave', () => { if (originalImageSrc && history.length > 0 && historyIndex >= 0) imageDisplay.src = history[historyIndex]; });
+
         downloadBtn.addEventListener('click', downloadImage);
-        cancelBtn.addEventListener('click', () => { /* ... unchanged ... */ });
+        cancelBtn.addEventListener('click', () => {
+             if (!originalImageSrc) return;
+             history = [originalImageSrc]; historyIndex = 0; imageDisplay.src = originalImageSrc;
+             updateUndoRedoButtons(); resetSlidersVisually();
+        });
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
-        superResBtn.addEventListener('click', runSuperResolution);
+        // Removed AI button listener
         console.log("Core listeners initialized.");
     };
 
     function handleImageUpload(event) {
         console.log("Image upload started...");
         const file = event.target.files[0]; if (!file) return;
-        isImageLoaded = false; toolStatus.textContent = ''; // Reset status
+        isImageLoaded = false;
+        // Removed toolStatus text update
         const reader = new FileReader();
         reader.onload = e => {
             originalImageSrc = e.target.result;
-            history = [originalImageSrc]; // Start history with only the original
-            historyIndex = 0;
+            history = [originalImageSrc]; historyIndex = 0;
             isImageLoaded = true;
-            // *** Display the original image directly ***
-            imageDisplay.src = originalImageSrc;
-            console.log("Original image displayed.");
+            imageDisplay.src = originalImageSrc; // Display original immediately
             updateUndoRedoButtons();
             downloadBtn.disabled = false;
             resetSlidersVisually(); // Reset sliders visually ONLY
-            updateToolStatus(); // Update AI status now that image is loaded
+            // Removed AI status update
+            console.log("Image loaded and displayed (original).");
         };
         reader.onerror = e => console.error("FileReader error:", e);
         reader.readAsDataURL(file);
     }
 
-    // Renamed for clarity - only resets slider positions
     function resetSlidersVisually() {
         allSliders.forEach(slider => {
+            // Use default value specified in HTML as fallback
             slider.value = slider.defaultValue || (slider.id === 'stretch' ? 50 : 0);
         });
         console.log("Sliders reset visually.");
@@ -110,35 +119,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Image Processing Pipeline ---
     function processImage(isNewHistoryState = false) {
         if (!originalImageSrc || !isImageLoaded) return;
-        console.log("Processing image...");
+        // console.log("Processing image..."); // Less console noise
         const baseImage = new Image();
         baseImage.onload = () => {
-             // Size canvas correctly
             if (canvas.width !== baseImage.naturalWidth || canvas.height !== baseImage.naturalHeight) {
                 canvas.width = baseImage.naturalWidth; canvas.height = baseImage.naturalHeight;
             }
-            ctx.drawImage(baseImage, 0, 0); // Draw base image
+            ctx.drawImage(baseImage, 0, 0);
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
             try {
-                // Apply adjustments IF any slider is non-default
-                if (Array.from(allSliders).some(s => s.id !== 'stretch' && parseFloat(s.value) !== 0)) {
+                // Apply adjustments IF any relevant slider is non-default
+                if (Array.from(allSliders).some(s => s.id !== 'stretch' && s.id !== 'sharpen' && parseFloat(s.value) !== 0)) {
                     applyAdjustments(pixels);
                 }
                 // Apply DStretch IF stretch slider != 50 OR colorspace != RGB
                 if (parseFloat(stretchSlider.value) !== 50 || selectedColorspace !== 'RGB') {
-                    const finalPixelData = runDStretch(pixels); // Pass current pixel data
+                    const finalPixelData = runDStretch(pixels); // Pass current (potentially adjusted) pixel data
                     imageData.data.set(finalPixelData);
                 }
             } catch (error) { console.error("Processing error:", error); ctx.drawImage(baseImage, 0, 0); imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); } // Revert canvas
-            ctx.putImageData(imageData, 0, 0); // Put processed data back
+            ctx.putImageData(imageData, 0, 0);
             const finalDataUrl = canvas.toDataURL(); imageDisplay.src = finalDataUrl;
             if (isNewHistoryState) updateHistory(finalDataUrl);
             else { if (history.length > 0) history[historyIndex] = finalDataUrl; else { history = [finalDataUrl]; historyIndex = 0; } updateUndoRedoButtons(); }
-            console.log("Processing complete.");
+            // console.log("Processing complete.");
         };
         baseImage.onerror = () => console.error("Base image load error for processing.");
-        baseImage.src = originalImageSrc; // Always start from original/upscaled source
+        baseImage.src = originalImageSrc; // Always start from original src
     }
 
     function applyAdjustments(pixels) { /* ... unchanged ... */ }
@@ -146,85 +154,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function performDstretch(c1, c2, c3) { /* ... unchanged ... */ }
     function downloadImage() { /* ... unchanged ... */ }
 
-    // --- AI Super Resolution ---
-    function updateToolStatus() {
-        // ... (logic remains the same - checks tfReady, isModelLoading, etc.) ...
-         const aiTabActive = document.querySelector('.nav-tab[data-panel="tools-panel"]').classList.contains('active');
-         const updateText = (text) => { if (toolStatus && aiTabActive) toolStatus.textContent = text; };
-
-        if (!isImageLoaded) { updateText('Upload an image to use AI tools.'); if (superResBtn) superResBtn.disabled = true; }
-        else if (!tfReady) { updateText('Error: AI library failed to load.'); if (superResBtn) superResBtn.disabled = true; }
-        else if (isModelLoading) { updateText('Loading AI model... (this can take ~30s)'); if (superResBtn) superResBtn.disabled = true; }
-        else if (!isModelLoaded) { updateText('Error: AI model failed to load.'); if (superResBtn) superResBtn.disabled = true; }
-        else { updateText('AI Ready. Apply before adjustments for best results.'); if (superResBtn) superResBtn.disabled = false; }
-    }
-
-    async function loadSuperResModel() {
-        if (!tfReady || isModelLoaded || isModelLoading) return; // Guard clauses
-
-        isModelLoading = true; updateToolStatus();
-        console.log("Attempting to load AI model...");
-        try {
-            await tf.ready(); // Explicitly wait for TF backend *again* just before loading
-            console.log("TF backend confirmed ready inside loadSuperResModel.");
-            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1'; // Verified URL
-            superResModel = await tf.loadGraphModel(modelUrl, { fromTFHub: true });
-            console.log("Model fetched, warming up...");
-            tf.tidy(() => { superResModel.predict(tf.zeros([1, 64, 64, 3], 'int32')).dispose(); }); // Warm-up
-            isModelLoaded = true;
-            console.log("AI Model Loaded Successfully");
-        } catch (e) {
-            console.error('Failed to load AI model:', e); isModelLoaded = false;
-        } finally {
-            isModelLoading = false; updateToolStatus();
-        }
-    }
-
-
-    async function runSuperResolution() {
-        if (!superResModel || !isImageLoaded) { updateToolStatus(); return; }
-        // ... (rest of the function remains unchanged) ...
-        toolStatus.textContent = 'Upscaling image... (this may take a moment)';
-        superResBtn.disabled = true; allSliders.forEach(s => s.disabled = true); colorspaceButtons.forEach(b => b.disabled = true);
-        await new Promise(resolve => setTimeout(resolve, 10)); // UI update allowance
-
-        const baseImage = new Image();
-        baseImage.onload = async () => {
-            const currentWidth = baseImage.naturalWidth, currentHeight = baseImage.naturalHeight;
-            const tempCanvas = document.createElement('canvas'); tempCanvas.width = currentWidth; tempCanvas.height = currentHeight;
-            const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(baseImage, 0, 0);
-            console.log(`Input size: ${currentWidth}x${currentHeight}`);
-            try {
-                const inputTensor = tf.browser.fromPixels(tempCanvas).expandDims(0).cast('int32');
-                const outputTensor = await superResModel.predict(inputTensor);
-                const outputImage = await tf.browser.toPixels(outputTensor.squeeze().clipByValue(0, 255).cast('int32'));
-                tf.dispose([inputTensor, outputTensor]);
-                const newWidth = currentWidth * 2, newHeight = currentHeight * 2;
-                 if (outputImage.length !== newWidth * newHeight * 4) throw new Error(`AI output size mismatch`);
-                console.log(`Output size: ${newWidth}x${newHeight}`);
-                canvas.width = newWidth; canvas.height = newHeight; // Resize main canvas
-                const newImageData = new ImageData(outputImage, newWidth, newHeight); ctx.putImageData(newImageData, 0, 0);
-                const finalDataUrl = canvas.toDataURL(); imageDisplay.src = finalDataUrl;
-                originalImageSrc = finalDataUrl; // Set upscaled as the new base
-                history = [originalImageSrc]; historyIndex = 0; // Reset history
-                updateUndoRedoButtons(); resetSlidersVisually(); // Reset sliders visually
-                toolStatus.textContent = 'AI upscaling complete!';
-            } catch (e) { console.error('Error during AI prediction:', e); toolStatus.textContent = 'Error running AI. Image may be too large or invalid.'; }
-            finally {
-                 superResBtn.disabled = false;
-                 allSliders.forEach(s => { if(s.id !== 'sharpen') s.disabled = false; });
-                 colorspaceButtons.forEach(b => b.disabled = false);
-            }
-        };
-        // Use the *current* state from history for upscaling
-        baseImage.src = history[historyIndex];
-    }
-
+    // Removed all AI functions (updateToolStatus, loadSuperResModel, runSuperResolution)
 
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified) ---
-    // These functions remain unchanged
+    // These remain unchanged
     // ... (include all the math/color functions from the previous correct version here) ...
-    function calculateMean(a){return a.reduce((b,c)=>b+c,0)/a.length}
+     function calculateMean(a){return a.reduce((b,c)=>b+c,0)/a.length}
     function calculateCovarianceMatrix(c1,c2,c3,m1,m2,m3){const n=c1.length;let a=0,b=0,c=0,d=0,e=0,f=0;for(let i=0;i<n;i++){const g=c1[i]-m1,h=c2[i]-m2,j=c3[i]-m3;a+=g*g;b+=h*h;c+=j*j;d+=g*h;e+=g*j;f+=h*j}const k=n-1;return[[a/k,d/k,e/k],[d/k,b/k,f/k],[e/k,f/k,c/k]]}
     function eigenDecomposition(a){if(typeof math==='undefined'){console.error("math.js not loaded");return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.error("Eigen Decomp Error:",c);return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
     function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
@@ -233,28 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
 
 
-    // --- TFJS READY CHECK AND INITIALIZATION ---
-    const checkTfReadyAndInit = async () => {
-        if (typeof tf !== 'undefined') {
-            try {
-                await tf.ready(); // Explicitly wait for backend initialization
-                tfReady = true; console.log("TensorFlow.js backend is ready.");
-                setupCoreEventListeners(); // Setup basic listeners now
-                // Attempt to load model if AI tab is already active, otherwise wait for click
-                if (document.querySelector('.nav-tab[data-panel="tools-panel"]').classList.contains('active')) {
-                    loadSuperResModel();
-                }
-            } catch (error) {
-                console.error("TensorFlow.js backend failed to initialize:", error);
-                tfReady = false; setupCoreEventListeners(); updateToolStatus();
-            }
-        } else {
-            console.log("Waiting for TensorFlow.js script..."); setTimeout(checkTfReadyAndInit, 100);
-        }
-    };
-    // Timeout for TFJS loading check
-    setTimeout(() => { if (!tfReady) { console.error("TFJS did not load within 15s."); tfReady = false; updateToolStatus(); if (!document.getElementById('imageLoader').hasAttribute('listenerAttached')) { setupCoreEventListeners(); document.getElementById('imageLoader').setAttribute('listenerAttached', 'true'); }}}, 15000);
-    // Start the check
-    checkTfReadyAndInit();
+    // --- INITIALIZE CORE APP ---
+    setupCoreEventListeners();
 
 }); // End DOMContentLoaded
