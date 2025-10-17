@@ -1,47 +1,196 @@
 /* General Setup */
-:root { --header-height: 50px; --footer-height: 220px; --nav-height: 50px; }
-body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #fff; }
-.app-container { display: flex; flex-direction: column; height: 100%; }
+:root {
+    --header-height: 50px;
+    --footer-height: 220px;
+    --nav-height: 50px;
+}
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #121212;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
 canvas { display: none; }
 
 /* Header */
-.app-header { height: var(--header-height); display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; padding: 0 15px; background-color: #1c1c1e; border-bottom: 1px solid #38383a; gap: 15px; flex-shrink: 0; }
-.header-title { font-weight: 600; text-align: center; font-size: 1rem; }
-.header-btn, .icon-btn { background: none; border: none; color: #007aff; font-size: 1rem; cursor: pointer; }
-.icon-btn { font-size: 1.5rem; line-height: 1; padding: 5px; color: #007aff;}
-.icon-btn:disabled { color: #555; cursor: not-allowed; }
+.app-header {
+    height: var(--header-height);
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    padding: 0 15px;
+    background-color: #1c1c1e;
+    border-bottom: 1px solid #38383a;
+    gap: 15px;
+    flex-shrink: 0;
+}
+.header-title {
+    font-weight: 600;
+    text-align: center;
+    font-size: 1rem;
+}
+.header-btn, .icon-btn {
+    background: none;
+    border: none;
+    color: #007aff;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 5px;
+}
+.icon-btn {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+.icon-btn:disabled, .header-btn:disabled {
+    color: #555;
+    cursor: not-allowed;
+}
 .history-controls { display: flex; gap: 10px; }
 
 /* Image Workspace */
-.image-workspace { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: auto; }
+.image-workspace {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    overflow: auto;
+}
 .image-container { max-width: 100%; max-height: 100%; }
-#imageDisplay { max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer; }
+#imageDisplay {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    cursor: pointer;
+}
 
 /* Footer & Controls */
-.app-footer { height: var(--footer-height); background-color: #1c1c1e; display: flex; flex-direction: column; border-top: 1px solid #38383a; flex-shrink: 0; }
-.control-panel { display: none; flex-grow: 1; padding: 10px 15px; overflow-y: auto; }
+.app-footer {
+    height: var(--footer-height);
+    background-color: #1c1c1e;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid #38383a;
+    flex-shrink: 0;
+}
+.control-panel {
+    display: none;
+    flex-grow: 1;
+    padding: 10px 15px;
+    overflow-y: auto;
+}
 .control-panel.active { display: block; }
 
 /* Slider Redesign */
-.slider-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.slider { display: grid; grid-template-columns: 85px 1fr; align-items: center; gap: 10px; }
-.slider label { font-size: 0.8rem; text-align: right; color: #ccc; }
-.slider input[type="range"] { width: 100%; margin: 0; }
+.slider-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+.slider {
+    /* Labels will be on top */
+}
+.slider label {
+    display: block;
+    font-size: 0.8rem;
+    color: #ccc;
+    margin-bottom: 4px;
+}
+.slider input[type="range"] {
+    width: 100%;
+    margin: 0;
+}
 input[type=range][disabled] { opacity: 0.4; }
 
-
 /* Main Navigation Tabs */
-.main-nav { height: var(--nav-height); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #38383a; flex-shrink: 0; }
-.nav-tab { background: none; border: none; color: #8e8e93; font-size: 0.9rem; font-weight: 500; cursor: pointer; flex-grow: 1; padding: 0; }
+.main-nav {
+    height: var(--nav-height);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid #38383a;
+    flex-shrink: 0;
+}
+.nav-tab {
+    background: none;
+    border: none;
+    color: #8e8e93;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    flex-grow: 1;
+    padding: 0;
+}
 .nav-tab.active { color: #ffd60a; }
 
 /* Carousel */
-.carousel { display: flex; align-items: center; overflow-x: auto; padding: 10px 0; gap: 10px; }
-.cs-btn { padding: 8px 15px; border: 1px solid #555; background-color: #3a3a3c; color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; transition: background-color 0.2s, border-color 0.2s; }
-.cs-btn.active { background-color: #007aff; border-color: #007aff; font-weight: 600; }
+.carousel {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    padding: 10px 0;
+    gap: 10px;
+}
+.cs-btn {
+    padding: 8px 15px;
+    border: 1px solid #555;
+    background-color: #3a3a3c;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.cs-btn.active {
+    background-color: #007aff;
+    border-color: #007aff;
+    font-weight: 600;
+}
+
+/* Tool Button Style */
+.tool-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    background-color: #3a3a3c;
+    border: 1px solid #555;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.tool-btn:disabled {
+    background-color: #2a2a2c;
+    color: #777;
+    cursor: not-allowed;
+}
+#tool-status {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #8e8e93;
+    margin-top: 15px;
+}
+
 
 /* Responsive Design for Landscape */
 @media (orientation: landscape) {
-    :root { --footer-height: 180px; }
-    .slider-grid { grid-template-columns: 1fr 1fr; column-gap: 20px;}
+    :root { --footer-height: 200px; }
+    .slider-grid {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 20px;
+    }
 }
