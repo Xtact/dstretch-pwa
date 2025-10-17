@@ -6,11 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
 
     // Header buttons
+    const cancelBtn = document.getElementById('cancel-btn');
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
     const downloadBtn = document.getElementById('download-btn');
     
-    // All Sliders
+    // Sliders
     const allSliders = document.querySelectorAll('input[type="range"]');
     const stretchSlider = document.getElementById('stretch');
     
@@ -19,12 +20,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const controlPanels = document.querySelectorAll('.control-panel');
     const colorspaceButtons = document.querySelectorAll('.cs-btn');
 
+    // Tools
+    const superResBtn = document.getElementById('super-res-btn');
+    const toolStatus = document.getElementById('tool-status');
+
     // --- State Management ---
     let originalImageSrc = null;
     let history = [];
     let historyIndex = -1;
     let selectedColorspace = 'RGB';
     let debouncedProcess;
+    let superResModel = null;
 
     // --- DEBOUNCE UTILITY ---
     const debounce = (func, delay) => {
@@ -85,17 +91,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         
         debouncedProcess = debounce(processImage, 400);
-        allSliders.forEach(slider => slider.addEventListener('input', () => {
-             if (originalImageSrc) debouncedProcess(slider.id === 'stretch'); 
-        }));
+        allSliders.forEach(slider => {
+            if (slider.id !== 'sharpen') {
+                 slider.addEventListener('input', () => { if (originalImageSrc) debouncedProcess(false); });
+                 slider.addEventListener('change', () => { if (originalImageSrc) updateHistory(imageDisplay.src); });
+            }
+        });
 
         imageDisplay.addEventListener('pointerdown', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = originalImageSrc; });
         imageDisplay.addEventListener('pointerup', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = history[historyIndex]; });
         imageDisplay.addEventListener('pointerleave', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = history[historyIndex]; });
         
         downloadBtn.addEventListener('click', downloadImage);
+        cancelBtn.addEventListener('click', () => {
+             if (!originalImageSrc) return;
+             history = [originalImageSrc];
+             historyIndex = 0;
+             updateUndoRedoButtons();
+             resetAndProcess();
+        });
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
+        
+        superResBtn.addEventListener('click', runSuperResolution);
+        
+        loadSuperResModel();
     };
 
     function handleImageUpload(event) {
@@ -107,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
             history = [originalImageSrc];
             historyIndex = 0;
             updateUndoRedoButtons();
+            downloadBtn.disabled = false;
             resetAndProcess();
         };
         reader.readAsDataURL(file);
@@ -117,11 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if(slider.id === 'stretch') slider.value = 50;
             else slider.value = 0;
         });
-        processImage(true);
+        processImage(false); // Don't create history for the initial load
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
-    function processImage(isNewHistoryState = true) {
+    function processImage(isNewHistoryState = false) {
         if (!originalImageSrc) return;
         
         const baseImage = new Image();
@@ -148,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isNewHistoryState) {
                 updateHistory(finalDataUrl);
             } else {
-                history[historyIndex] = finalDataUrl;
+                history[historyIndex] = finalDataUrl; // Overwrite current state
             }
         };
         baseImage.src = originalImageSrc; // Always start from the pristine original
@@ -164,41 +185,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
         const satFactor = saturation / 100;
+        const totalBrightness = exposure + brightness;
 
         for (let i = 0; i < pixels.length; i += 4) {
             let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
 
-            // Exposure & Brightness are similar, let's combine
-            const totalBrightness = exposure + brightness;
+            // Brightness & Exposure
             r += totalBrightness; g += totalBrightness; b += totalBrightness;
 
-            // Shadows: Simple lift for darker pixels
+            // Shadows
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
             if (luma < 128) {
                 const shadowFactor = shadows * (1 - luma / 128);
                 r += shadowFactor; g += shadowFactor; b += shadowFactor;
             }
 
-            // Contrast & Black Point
+            // Contrast
             r = contrastFactor * (r - 128) + 128;
             g = contrastFactor * (g - 128) + 128;
             b = contrastFactor * (b - 128) + 128;
-            r = Math.max(r, r * blackPoint);
-            g = Math.max(g, g * blackPoint);
-            b = Math.max(b, b * blackPoint);
+
+            // Black Point
+            r = Math.max(r, 255 * blackPoint);
+            g = Math.max(g, 255 * blackPoint);
+            b = Math.max(b, 255 * blackPoint);
 
             // Saturation
-            const avg = (r + g + b) / 3;
-            r = avg + (r - avg) * (1 + satFactor);
-            g = avg + (g - avg) * (1 + satFactor);
-            b = avg + (b - avg) * (1 + satFactor);
+            if (satFactor !== 0) {
+                const avg = (r + g + b) / 3;
+                r = avg + (r - avg) * (1 + satFactor);
+                g = avg + (g - avg) * (1 + satFactor);
+                b = avg + (b - avg) * (1 + satFactor);
+            }
 
             pixels[i] = r; pixels[i+1] = g; pixels[i+2] = b;
         }
     }
     
     function runDStretch(imageData) {
-        // This function now just runs the DStretch part, not the whole pipeline
         const nPixels = imageData.length / 4;
         let c1 = [], c2 = [], c3 = [];
 
@@ -251,6 +275,68 @@ document.addEventListener('DOMContentLoaded', () => {
         link.download = 'DstretchPro_Image.png';
         link.href = history[historyIndex];
         link.click();
+    }
+    
+    // --- AI SUPER RESOLUTION ---
+    async function loadSuperResModel() {
+        try {
+            toolStatus.textContent = 'Loading AI model...';
+            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1';
+            superResModel = await tf.loadGraphModel(modelUrl);
+            toolStatus.textContent = 'AI model loaded.';
+            superResBtn.disabled = false;
+        } catch (e) {
+            console.error('Failed to load AI model:', e);
+            toolStatus.textContent = 'Error loading AI model.';
+        }
+    }
+    
+    async function runSuperResolution() {
+        if (!superResModel || !history[historyIndex]) {
+            toolStatus.textContent = 'AI not ready or no image.';
+            return;
+        }
+        
+        toolStatus.textContent = 'Upscaling image... (this may take a moment)';
+        superResBtn.disabled = true;
+
+        const baseImage = new Image();
+        baseImage.onload = async () => {
+            canvas.width = baseImage.naturalWidth;
+            canvas.height = baseImage.naturalHeight;
+            ctx.drawImage(baseImage, 0, 0);
+
+            // Convert image to tensor
+            const inputTensor = tf.browser.fromPixels(canvas).expandDims(0).cast('float32');
+            
+            // Run the model
+            const outputTensor = await superResModel.predict(inputTensor);
+            
+            // Convert tensor back to image
+            const outputImage = await tf.browser.toPixels(outputTensor.squeeze().clipByValue(0, 255).cast('int32'));
+            
+            // Display the new, larger image
+            const newWidth = canvas.width * 2;
+            const newHeight = canvas.height * 2;
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            const newImageData = new ImageData(outputImage, newWidth, newHeight);
+            ctx.putImageData(newImageData, 0, 0);
+
+            const finalDataUrl = canvas.toDataURL();
+            imageDisplay.src = finalDataUrl;
+            
+            // Set this new upscaled image as the new "original"
+            originalImageSrc = finalDataUrl;
+            history = [originalImageSrc];
+            historyIndex = 0;
+            updateUndoRedoButtons();
+            
+            tf.dispose([inputTensor, outputTensor]);
+            toolStatus.textContent = 'AI upscaling complete!';
+            superResBtn.disabled = false;
+        };
+        baseImage.src = history[historyIndex]; // Upscale the current image
     }
 
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified for brevity) ---
