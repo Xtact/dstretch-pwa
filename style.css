@@ -185,7 +185,6 @@ input[type=range][disabled] { opacity: 0.4; }
     margin-top: 15px;
 }
 
-
 /* Responsive Design for Landscape */
 @media (orientation: landscape) {
     :root { --footer-height: 200px; }
