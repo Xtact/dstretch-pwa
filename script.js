@@ -81,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.classList.add('active');
             document.getElementById(tab.dataset.panel).classList.add('active');
             
-            // Update tool status when tab is clicked
             if (tab.dataset.panel === 'tools-panel') {
                 updateToolStatus();
             }
@@ -101,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
         allSliders.forEach(slider => {
             if (slider.id !== 'sharpen') {
                  slider.addEventListener('input', () => { if (originalImageSrc) debouncedProcess(false); });
-                 // Update history only when user finishes sliding
                  slider.addEventListener('change', () => { if (originalImageSrc) updateHistory(imageDisplay.src); });
             }
         });
@@ -138,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isImageLoaded = true;
             updateUndoRedoButtons();
             downloadBtn.disabled = false;
-            updateToolStatus(); // Check if model is ready
+            updateToolStatus();
             resetAndProcess();
         };
         reader.readAsDataURL(file);
@@ -165,13 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
 
-            // Step 1: Apply "Adjust" filters directly to pixel data
             applyAdjustments(pixels);
-
-            // Step 2: Run DStretch on the adjusted pixel data
             const finalPixelData = runDStretch(pixels);
 
-            // Step 3: Display final result and update history
             imageData.data.set(finalPixelData);
             ctx.putImageData(imageData, 0, 0);
             const finalDataUrl = canvas.toDataURL();
@@ -299,15 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSuperResModel() {
         try {
-            updateToolStatus(); // Show "Loading..."
-            // Corrected model URL: using tfjs-models/esrgan which is a pre-quantized 2x model
-            const modelUrl = 'https://tfhub.dev/tensorflow/tfjs-model/esrgan/bfp/2/default/1';
+            updateToolStatus();
+            // *** THIS IS THE CORRECTED URL ***
+            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1';
             superResModel = await tf.loadGraphModel(modelUrl);
             isModelLoaded = true;
-            updateToolStatus(); // Show "AI Ready"
+            updateToolStatus();
         } catch (e) {
             console.error('Failed to load AI model:', e);
-            toolStatus.textContent = 'Error loading AI model. Check console for details.';
+            toolStatus.textContent = 'Error: AI model failed to load.';
             superResBtn.disabled = true;
         }
     }
@@ -320,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         toolStatus.textContent = 'Upscaling image... (this may take a moment)';
         superResBtn.disabled = true;
-        await new Promise(resolve => setTimeout(resolve, 0)); // Allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 0));
 
         const baseImage = new Image();
         baseImage.onload = async () => {
@@ -328,40 +322,41 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.height = baseImage.naturalHeight;
             ctx.drawImage(baseImage, 0, 0);
 
-            // Convert image to tensor
-            // ESRGAN models expect input in range [0, 1]
-            const inputTensor = tf.browser.fromPixels(canvas).expandDims(0).div(255.0);
-            
-            // Run the model
-            const outputTensor = await superResModel.predict(inputTensor);
-            
-            // Convert tensor back to image (output is [0,1], convert to [0,255] and to int32)
-            const outputImage = await tf.browser.toPixels(outputTensor.squeeze().mul(255.0).clipByValue(0, 255).cast('int32'));
-            
-            // Dispose tensors to free up memory
-            tf.dispose([inputTensor, outputTensor]);
-            
-            // Display the new, larger image
-            const newWidth = canvas.width * 2; // ESRGAN 2x model
-            const newHeight = canvas.height * 2;
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            const newImageData = new ImageData(outputImage, newWidth, newHeight);
-            ctx.putImageData(newImageData, 0, 0);
+            try {
+                // Model expects input [0, 255], int32
+                const inputTensor = tf.browser.fromPixels(canvas).expandDims(0).cast('int32');
+                
+                const outputTensor = await superResModel.predict(inputTensor);
+                
+                // Model output is [0, 255], float32. Clip, cast to int32 for toPixels
+                const outputImage = await tf.browser.toPixels(outputTensor.squeeze().clipByValue(0, 255).cast('int32'));
+                
+                tf.dispose([inputTensor, outputTensor]);
+                
+                const newWidth = canvas.width * 2;
+                const newHeight = canvas.height * 2;
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                const newImageData = new ImageData(outputImage, newWidth, newHeight);
+                ctx.putImageData(newImageData, 0, 0);
 
-            const finalDataUrl = canvas.toDataURL();
-            imageDisplay.src = finalDataUrl;
-            
-            // Set this new upscaled image as the new "original" and reset history
-            originalImageSrc = finalDataUrl;
-            history = [originalImageSrc];
-            historyIndex = 0;
-            updateUndoRedoButtons();
-            
-            toolStatus.textContent = 'AI upscaling complete!';
-            superResBtn.disabled = false;
+                const finalDataUrl = canvas.toDataURL();
+                imageDisplay.src = finalDataUrl;
+                
+                originalImageSrc = finalDataUrl;
+                history = [originalImageSrc];
+                historyIndex = 0;
+                updateUndoRedoButtons();
+                
+                toolStatus.textContent = 'AI upscaling complete!';
+                superResBtn.disabled = false;
+            } catch (e) {
+                 console.error('Error during AI prediction:', e);
+                 toolStatus.textContent = 'Error running AI. Image may be too large.';
+                 superResBtn.disabled = false;
+            }
         };
-        baseImage.src = history[historyIndex]; // Upscale the current image
+        baseImage.src = history[historyIndex];
     }
 
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified for brevity) ---
