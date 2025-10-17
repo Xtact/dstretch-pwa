@@ -1,4 +1,30 @@
-document.addEventListener('DOMContentLoaded', async () => { // Make main listener async
+document.addEventListener('DOMContentLoaded', () => {
+    // Make sure tf is available globally before proceeding.
+    // If it's not ready after a short delay, show an error.
+    const checkTF = setInterval(() => {
+        if (typeof tf !== 'undefined') {
+            clearInterval(checkTF);
+            console.log("TensorFlow.js loaded, initializing app.");
+            initializeApp(); // Call the main initialization function
+        } else {
+            console.log("Waiting for TensorFlow.js...");
+        }
+    }, 100);
+
+    // Timeout if TF.js doesn't load after a reasonable time
+    setTimeout(() => {
+        if (typeof tf === 'undefined') {
+            clearInterval(checkTF);
+            console.error("TensorFlow.js failed to load.");
+            const toolStatus = document.getElementById('tool-status');
+            if(toolStatus) toolStatus.textContent = "Error: AI library failed to load. Please refresh.";
+        }
+    }, 10000); // 10 seconds timeout
+
+});
+
+// Wrap the entire application logic in this function
+async function initializeApp() {
     // --- Get all interactive elements ---
     const imageDisplay = document.getElementById('imageDisplay');
     const imageLoader = document.getElementById('imageLoader');
@@ -25,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
     const toolStatus = document.getElementById('tool-status');
 
     // --- State Management ---
-    let originalImageSrc = null; // Holds the src of the *initial* uploaded image OR the last AI-upscaled image
+    let originalImageSrc = null;
     let history = [];
     let historyIndex = -1;
     let selectedColorspace = 'RGB';
@@ -46,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
 
     // --- HISTORY (UNDO/REDO) MANAGEMENT ---
     const updateHistory = (dataUrl) => {
-        if (history[historyIndex] === dataUrl) return; // Avoid duplicates
+        if (history[historyIndex] === dataUrl) return;
         history.splice(historyIndex + 1);
         history.push(dataUrl);
         historyIndex++;
@@ -62,7 +88,6 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         if (historyIndex > 0) {
             historyIndex--;
             imageDisplay.src = history[historyIndex];
-            // No need to re-process, just show historical state
             updateUndoRedoButtons();
         }
     };
@@ -71,13 +96,13 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         if (historyIndex < history.length - 1) {
             historyIndex++;
             imageDisplay.src = history[historyIndex];
-            // No need to re-process, just show historical state
             updateUndoRedoButtons();
         }
     };
 
     // --- CORE APP LOGIC ---
-    const initialize = async () => { // Make initialize async
+    // Now called initialize instead of initializeApp
+    const initialize = async () => {
         navTabs.forEach(tab => tab.addEventListener('click', () => {
             navTabs.forEach(t => t.classList.remove('active'));
             controlPanels.forEach(p => p.classList.remove('active'));
@@ -93,15 +118,13 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
             colorspaceButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
             selectedColorspace = button.dataset.colorspace;
-            if (originalImageSrc) debouncedProcess(true); // Trigger processing, add to history
+            if (originalImageSrc) debouncedProcess(true);
         }));
         
         debouncedProcess = debounce(processImage, 400);
         allSliders.forEach(slider => {
             if (slider.id !== 'sharpen') {
-                 // Process in real-time while sliding
                  slider.addEventListener('input', () => { if (originalImageSrc) debouncedProcess(false); });
-                 // Add to history only when user stops sliding
                  slider.addEventListener('change', () => { if (originalImageSrc) updateHistory(imageDisplay.src); });
             }
         });
@@ -113,12 +136,11 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         downloadBtn.addEventListener('click', downloadImage);
         cancelBtn.addEventListener('click', () => {
              if (!originalImageSrc) return;
-             // Reset to the pristine original
              history = [originalImageSrc];
              historyIndex = 0;
-             imageDisplay.src = originalImageSrc; // Display the original
+             imageDisplay.src = originalImageSrc;
              updateUndoRedoButtons();
-             resetSliders(); // Reset sliders visually, don't trigger processing
+             resetSliders();
         });
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
@@ -136,24 +158,25 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         const reader = new FileReader();
         reader.onload = e => {
             originalImageSrc = e.target.result;
-            history = [originalImageSrc]; // Start history with the pristine image
+            history = [originalImageSrc];
             historyIndex = 0;
             isImageLoaded = true;
             imageDisplay.src = originalImageSrc; // Display original immediately
             updateUndoRedoButtons();
             downloadBtn.disabled = false;
             updateToolStatus();
-            resetSliders(); // Reset sliders without processing
+            resetSliders();
         };
         reader.readAsDataURL(file);
     }
 
-    // Renamed from resetAndProcess - only resets sliders now
     function resetSliders() {
         allSliders.forEach(slider => {
             if(slider.id === 'stretch') slider.value = 50;
             else slider.value = 0;
         });
+        // We don't necessarily need to process after just resetting sliders
+        // Let the user trigger the first process by interacting
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
@@ -164,18 +187,14 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         baseImage.onload = () => {
             canvas.width = baseImage.naturalWidth;
             canvas.height = baseImage.naturalHeight;
-            ctx.drawImage(baseImage, 0, 0); // Draw pristine original onto canvas
+            ctx.drawImage(baseImage, 0, 0);
 
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
 
-            // Step 1: Apply "Adjust" filters
             applyAdjustments(pixels);
-
-            // Step 2: Run DStretch
             const finalPixelData = runDStretch(pixels);
 
-            // Step 3: Display result & update history
             imageData.data.set(finalPixelData);
             ctx.putImageData(imageData, 0, 0);
             const finalDataUrl = canvas.toDataURL();
@@ -184,16 +203,14 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
             if (isNewHistoryState) {
                 updateHistory(finalDataUrl);
             } else {
-                // Overwrite current state while sliding for real-time feel
                 history[historyIndex] = finalDataUrl;
             }
         };
-        // IMPORTANT: Process always starts from the pristine original image
         baseImage.src = originalImageSrc;
     }
 
-    // applyAdjustments, runDStretch, performDstretch - remain the same
     function applyAdjustments(pixels) {
+        // ... (this function remains the same as the previous correct version) ...
         const exposure = parseFloat(document.getElementById('exposure').value);
         const shadows = parseFloat(document.getElementById('shadows').value);
         const brightness = parseFloat(document.getElementById('brightness').value);
@@ -239,7 +256,8 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
     }
     
     function runDStretch(imageData) {
-        const nPixels = imageData.length / 4;
+        // ... (this function remains the same as the previous correct version) ...
+         const nPixels = imageData.length / 4;
         let c1 = [], c2 = [], c3 = [];
 
         for (let i = 0; i < nPixels; i++) {
@@ -264,7 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
     }
     
     function performDstretch(c1, c2, c3) {
-        // This function remains unchanged - calculations are correct
+        // ... (this function remains the same as the previous correct version) ...
         const meanC1 = calculateMean(c1), meanC2 = calculateMean(c2), meanC3 = calculateMean(c3);
         const covMatrix = calculateCovarianceMatrix(c1, c2, c3, meanC1, meanC2, meanC3);
         const { eigenvectors, eigenvalues } = eigenDecomposition(covMatrix);
@@ -308,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
             toolStatus.textContent = 'Upload an image to use AI tools.';
             superResBtn.disabled = true;
         } else if (isModelLoading) {
-             toolStatus.textContent = 'Loading AI model...';
+             toolStatus.textContent = 'Loading AI model... (this can take ~30s)';
              superResBtn.disabled = true;
         } else if (!isModelLoaded) {
             toolStatus.textContent = 'Error: AI model failed to load.';
@@ -331,16 +349,16 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         updateToolStatus();
         try {
             // *** CORRECTED MODEL URL ***
-            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1';
+            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1'; // Correct 'https'
             superResModel = await tf.loadGraphModel(modelUrl);
             isModelLoaded = true;
             console.log("AI Model Loaded Successfully");
         } catch (e) {
             console.error('Failed to load AI model:', e);
-            isModelLoaded = false; // Ensure this is false on error
+            isModelLoaded = false;
         } finally {
             isModelLoading = false;
-            updateToolStatus(); // Update status regardless of success/failure
+            updateToolStatus();
         }
     }
     
@@ -352,15 +370,13 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
         
         toolStatus.textContent = 'Upscaling image... (this may take a moment)';
         superResBtn.disabled = true;
-        await new Promise(resolve => setTimeout(resolve, 10)); // Allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 10));
 
         const baseImage = new Image();
         baseImage.onload = async () => {
-            // Use current image dimensions for input tensor
             const currentWidth = baseImage.naturalWidth;
             const currentHeight = baseImage.naturalHeight;
             
-            // Create a temporary canvas for tensor conversion
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = currentWidth;
             tempCanvas.height = currentHeight;
@@ -383,7 +399,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
 
                 tf.dispose([inputTensor, outputTensor]);
                 
-                const newWidth = currentWidth * 2; // ESRGAN 2x model
+                const newWidth = currentWidth * 2;
                 const newHeight = currentHeight * 2;
                 console.log(`Output image size: ${newWidth}x${newHeight}`);
 
@@ -396,12 +412,11 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
                 const finalDataUrl = canvas.toDataURL();
                 imageDisplay.src = finalDataUrl;
                 
-                // Set this new upscaled image as the new "original" and reset history/sliders
                 originalImageSrc = finalDataUrl;
                 history = [originalImageSrc];
                 historyIndex = 0;
                 updateUndoRedoButtons();
-                resetSliders(); // Reset sliders visually after upscaling
+                resetSliders();
                 
                 toolStatus.textContent = 'AI upscaling complete!';
                 
@@ -409,10 +424,9 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
                  console.error('Error during AI prediction:', e);
                  toolStatus.textContent = 'Error running AI. Image may be too large or invalid.';
             } finally {
-                 superResBtn.disabled = false; // Re-enable button even on error
+                 superResBtn.disabled = false;
             }
         };
-        // Use the current state from history for upscaling
         baseImage.src = history[historyIndex];
     }
 
@@ -420,11 +434,12 @@ document.addEventListener('DOMContentLoaded', async () => { // Make main listene
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified for brevity) ---
     function calculateMean(a){return a.reduce((b,c)=>b+c,0)/a.length}
     function calculateCovarianceMatrix(c1,c2,c3,m1,m2,m3){const n=c1.length;let a=0,b=0,c=0,d=0,e=0,f=0;for(let i=0;i<n;i++){const g=c1[i]-m1,h=c2[i]-m2,j=c3[i]-m3;a+=g*g;b+=h*h;c+=j*j;d+=g*h;e+=g*j;f+=h*j}const k=n-1;return[[a/k,d/k,e/k],[d/k,b/k,f/k],[e/k,f/k,c/k]]}
-    function eigenDecomposition(a){try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.error("Eigen Decomp Error:",c);return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}} // Added console log
+    function eigenDecomposition(a){try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.error("Eigen Decomp Error:",c);return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
     function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
-    function convertToRgb(c1,c2,c3,cs){let r,g,b;try{switch(cs){case'LAB':return labToRgb(c1,c2,c3);case'YRE':r=c2;g=c3;b=(c1-0.587*g-0.299*r)/0.114;break;case'LRE':r=c2;g=c3;b=(c1-0.7152*g-0.2126*r)/0.0722;break;case'YBK':g=255-c3;b=c2;r=(c1-0.587*g-0.114*b)/0.299;break;default:r=c1;g=c2;b=c3;break}}catch(e){console.error("Error converting back to RGB:",e);return[0,0,0]}return[r,g,b];} // Added error handling
+    function convertToRgb(c1,c2,c3,cs){let r,g,b;try{switch(cs){case'LAB':return labToRgb(c1,c2,c3);case'YRE':r=c2;g=c3;b=(c1-0.587*g-0.299*r)/0.114;break;case'LRE':r=c2;g=c3;b=(c1-0.7152*g-0.2126*r)/0.0722;break;case'YBK':g=255-c3;b=c2;r=(c1-0.587*g-0.114*b)/0.299;break;default:r=c1;g=c2;b=c3;break}}catch(e){console.error("Error converting back to RGB:",e);return[0,0,0]}return[r,g,b];}
     function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;return[(116*y)-16,500*(x-y),200*(y-z)]}
     function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
 
-    initialize();
-});
+    // Call the main initialization function after TF.js check confirms it's loaded
+    // This is handled by the initial DOMContentLoaded listener now.
+}
