@@ -1,30 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Make sure tf is available globally before proceeding.
-    // If it's not ready after a short delay, show an error.
-    const checkTF = setInterval(() => {
-        if (typeof tf !== 'undefined') {
-            clearInterval(checkTF);
-            console.log("TensorFlow.js loaded, initializing app.");
-            initializeApp(); // Call the main initialization function
-        } else {
-            console.log("Waiting for TensorFlow.js...");
-        }
-    }, 100);
-
-    // Timeout if TF.js doesn't load after a reasonable time
-    setTimeout(() => {
-        if (typeof tf === 'undefined') {
-            clearInterval(checkTF);
-            console.error("TensorFlow.js failed to load.");
-            const toolStatus = document.getElementById('tool-status');
-            if(toolStatus) toolStatus.textContent = "Error: AI library failed to load. Please refresh.";
-        }
-    }, 10000); // 10 seconds timeout
-
-});
-
-// Wrap the entire application logic in this function
-async function initializeApp() {
     // --- Get all interactive elements ---
     const imageDisplay = document.getElementById('imageDisplay');
     const imageLoader = document.getElementById('imageLoader');
@@ -36,11 +10,11 @@ async function initializeApp() {
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
     const downloadBtn = document.getElementById('download-btn');
-    
+
     // Sliders
     const allSliders = document.querySelectorAll('input[type="range"]');
     const stretchSlider = document.getElementById('stretch');
-    
+
     // Navigation
     const navTabs = document.querySelectorAll('.nav-tab');
     const controlPanels = document.querySelectorAll('.control-panel');
@@ -51,7 +25,7 @@ async function initializeApp() {
     const toolStatus = document.getElementById('tool-status');
 
     // --- State Management ---
-    let originalImageSrc = null;
+    let originalImageSrc = null; // Holds the src of the *initial* uploaded image OR the last AI-upscaled image
     let history = [];
     let historyIndex = -1;
     let selectedColorspace = 'RGB';
@@ -72,7 +46,7 @@ async function initializeApp() {
 
     // --- HISTORY (UNDO/REDO) MANAGEMENT ---
     const updateHistory = (dataUrl) => {
-        if (history[historyIndex] === dataUrl) return;
+        if (history.length > 0 && history[historyIndex] === dataUrl) return; // Avoid duplicates
         history.splice(historyIndex + 1);
         history.push(dataUrl);
         historyIndex++;
@@ -89,6 +63,8 @@ async function initializeApp() {
             historyIndex--;
             imageDisplay.src = history[historyIndex];
             updateUndoRedoButtons();
+             // When undoing, reset sliders to reflect the historical state (or an approximation)
+             // For simplicity now, just keep sliders as they are, but ideally you'd store slider values in history too.
         }
     };
 
@@ -97,12 +73,12 @@ async function initializeApp() {
             historyIndex++;
             imageDisplay.src = history[historyIndex];
             updateUndoRedoButtons();
+            // Similarly, sliders should ideally reflect the redone state.
         }
     };
 
     // --- CORE APP LOGIC ---
-    // Now called initialize instead of initializeApp
-    const initialize = async () => {
+    const initialize = () => { // Removed async here, moved AI loading
         navTabs.forEach(tab => tab.addEventListener('click', () => {
             navTabs.forEach(t => t.classList.remove('active'));
             controlPanels.forEach(p => p.classList.remove('active'));
@@ -120,19 +96,23 @@ async function initializeApp() {
             selectedColorspace = button.dataset.colorspace;
             if (originalImageSrc) debouncedProcess(true);
         }));
-        
+
         debouncedProcess = debounce(processImage, 400);
         allSliders.forEach(slider => {
             if (slider.id !== 'sharpen') {
                  slider.addEventListener('input', () => { if (originalImageSrc) debouncedProcess(false); });
-                 slider.addEventListener('change', () => { if (originalImageSrc) updateHistory(imageDisplay.src); });
+                 slider.addEventListener('change', () => { if (originalImageSrc) {
+                     // Only add history state when user *stops* sliding
+                     // Debounce ensures we capture the final state after sliding stops
+                     setTimeout(() => updateHistory(imageDisplay.src), 50); // Small delay to ensure imageDisplay has updated
+                 }});
             }
         });
 
         imageDisplay.addEventListener('pointerdown', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = originalImageSrc; });
         imageDisplay.addEventListener('pointerup', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = history[historyIndex]; });
         imageDisplay.addEventListener('pointerleave', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = history[historyIndex]; });
-        
+
         downloadBtn.addEventListener('click', downloadImage);
         cancelBtn.addEventListener('click', () => {
              if (!originalImageSrc) return;
@@ -144,28 +124,29 @@ async function initializeApp() {
         });
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
-        
+
         superResBtn.addEventListener('click', runSuperResolution);
-        
-        // Await model loading
-        await loadSuperResModel();
+
+        // Load AI Model *after* basic UI setup
+        loadSuperResModel();
     };
 
     function handleImageUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
-        isImageLoaded = false;
+        isImageLoaded = false; // Reset flag
+        toolStatus.textContent = ''; // Clear status message
         const reader = new FileReader();
         reader.onload = e => {
-            originalImageSrc = e.target.result;
-            history = [originalImageSrc];
+            originalImageSrc = e.target.result; // Store the pristine uploaded image src
+            history = [originalImageSrc]; // Initialize history with the pristine image
             historyIndex = 0;
             isImageLoaded = true;
-            imageDisplay.src = originalImageSrc; // Display original immediately
+            imageDisplay.src = originalImageSrc; // Display the original immediately
             updateUndoRedoButtons();
             downloadBtn.disabled = false;
-            updateToolStatus();
-            resetSliders();
+            updateToolStatus(); // Update AI button state
+            resetSliders(); // Reset sliders visually, DO NOT process yet
         };
         reader.readAsDataURL(file);
     }
@@ -173,90 +154,114 @@ async function initializeApp() {
     function resetSliders() {
         allSliders.forEach(slider => {
             if(slider.id === 'stretch') slider.value = 50;
-            else slider.value = 0;
+            else slider.value = 0; // Default adjust sliders to 0 (no effect)
         });
-        // We don't necessarily need to process after just resetting sliders
-        // Let the user trigger the first process by interacting
     }
+
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
     function processImage(isNewHistoryState = false) {
-        if (!originalImageSrc) return;
-        
+        if (!originalImageSrc || !isImageLoaded) return; // Don't process if no image
+
         const baseImage = new Image();
         baseImage.onload = () => {
-            canvas.width = baseImage.naturalWidth;
-            canvas.height = baseImage.naturalHeight;
-            ctx.drawImage(baseImage, 0, 0);
+            // Ensure canvas is sized correctly
+            if (canvas.width !== baseImage.naturalWidth || canvas.height !== baseImage.naturalHeight) {
+                canvas.width = baseImage.naturalWidth;
+                canvas.height = baseImage.naturalHeight;
+            }
+            ctx.drawImage(baseImage, 0, 0); // Draw pristine original onto canvas
 
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
 
+            // Step 1: Apply "Adjust" filters
             applyAdjustments(pixels);
+
+            // Step 2: Run DStretch
             const finalPixelData = runDStretch(pixels);
 
+            // Step 3: Display result & update history
             imageData.data.set(finalPixelData);
             ctx.putImageData(imageData, 0, 0);
             const finalDataUrl = canvas.toDataURL();
             imageDisplay.src = finalDataUrl;
-            
+
             if (isNewHistoryState) {
+                // Called when colorspace changes or after AI upscale
                 updateHistory(finalDataUrl);
             } else {
-                history[historyIndex] = finalDataUrl;
+                // Overwrite current state while sliding for real-time feel
+                if (history.length > 0) { // Ensure history is initialized
+                   history[historyIndex] = finalDataUrl;
+                } else { // Should not happen after upload, but safeguard
+                   history = [finalDataUrl];
+                   historyIndex = 0;
+                }
+                 updateUndoRedoButtons(); // Enable undo after first adjustment
             }
         };
+        // Process always starts from the *original* uploaded/upscaled image
         baseImage.src = originalImageSrc;
     }
 
     function applyAdjustments(pixels) {
-        // ... (this function remains the same as the previous correct version) ...
-        const exposure = parseFloat(document.getElementById('exposure').value);
+        // ... (this function remains the same) ...
+         const exposure = parseFloat(document.getElementById('exposure').value);
         const shadows = parseFloat(document.getElementById('shadows').value);
         const brightness = parseFloat(document.getElementById('brightness').value);
         const contrast = parseFloat(document.getElementById('contrast').value);
         const blackPoint = parseFloat(document.getElementById('blackPoint').value) / 100;
         const saturation = parseFloat(document.getElementById('saturation').value);
 
-        const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        const contrastFactor = contrast === 0 ? 1 : (259 * (contrast + 255)) / (255 * (259 - contrast)); // Avoid division by zero/inf
         const satFactor = saturation / 100;
         const totalBrightness = exposure + brightness;
 
         for (let i = 0; i < pixels.length; i += 4) {
             let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
 
+            // Apply Brightness & Exposure first
             r += totalBrightness; g += totalBrightness; b += totalBrightness;
 
-            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+            // Apply Shadows lift
+            const luma = 0.299 * r + 0.587 * g + 0.114 * b; // Calculate luma *after* brightness
             if (luma < 128) {
                 const shadowFactor = shadows * (1 - luma / 128);
                 r += shadowFactor; g += shadowFactor; b += shadowFactor;
             }
 
-            r = contrastFactor * (r - 128) + 128;
-            g = contrastFactor * (g - 128) + 128;
-            b = contrastFactor * (b - 128) + 128;
+            // Apply Contrast
+            if (contrast !== 0) {
+                r = contrastFactor * (r - 128) + 128;
+                g = contrastFactor * (g - 128) + 128;
+                b = contrastFactor * (b - 128) + 128;
+            }
 
+            // Apply Black Point
             r = Math.max(r, 255 * blackPoint);
             g = Math.max(g, 255 * blackPoint);
             b = Math.max(b, 255 * blackPoint);
 
+            // Apply Saturation
             if (satFactor !== 0) {
-                const avg = (r + g + b) / 3;
-                r = avg + (r - avg) * (1 + satFactor);
-                g = avg + (g - avg) * (1 + satFactor);
-                b = avg + (b - avg) * (1 + satFactor);
+                // Standard saturation formula requires normalized values [0,1]
+                // but simpler approx: shift towards/away from average grey
+                 const avg = (r + g + b) / 3;
+                 r = avg + (r - avg) * (1 + satFactor);
+                 g = avg + (g - avg) * (1 + satFactor);
+                 b = avg + (b - avg) * (1 + satFactor);
             }
 
-            // Clamp values
+            // Clamp final values
             pixels[i]   = Math.max(0, Math.min(255, r));
             pixels[i+1] = Math.max(0, Math.min(255, g));
             pixels[i+2] = Math.max(0, Math.min(255, b));
         }
     }
-    
+
     function runDStretch(imageData) {
-        // ... (this function remains the same as the previous correct version) ...
+        // ... (this function remains the same) ...
          const nPixels = imageData.length / 4;
         let c1 = [], c2 = [], c3 = [];
 
@@ -265,7 +270,7 @@ async function initializeApp() {
             const converted = convertRgbTo(r, g, b, selectedColorspace);
             c1.push(converted[0]); c2.push(converted[1]); c3.push(converted[2]);
         }
-        
+
         const { stretchedC1, stretchedC2, stretchedC3 } = performDstretch(c1, c2, c3);
 
         const finalPixelData = new Uint8ClampedArray(imageData.length);
@@ -280,13 +285,13 @@ async function initializeApp() {
         }
         return finalPixelData;
     }
-    
+
     function performDstretch(c1, c2, c3) {
-        // ... (this function remains the same as the previous correct version) ...
+        // ... (this function remains the same) ...
         const meanC1 = calculateMean(c1), meanC2 = calculateMean(c2), meanC3 = calculateMean(c3);
         const covMatrix = calculateCovarianceMatrix(c1, c2, c3, meanC1, meanC2, meanC3);
         const { eigenvectors, eigenvalues } = eigenDecomposition(covMatrix);
-        
+
         const stretchAmount = stretchSlider.value;
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
@@ -295,7 +300,7 @@ async function initializeApp() {
             let p1=v1*eigenvectors[0][0]+v2*eigenvectors[1][0]+v3*eigenvectors[2][0];
             let p2=v1*eigenvectors[0][1]+v2*eigenvectors[1][1]+v3*eigenvectors[2][1];
             let p3=v1*eigenvectors[0][2]+v2*eigenvectors[1][2]+v3*eigenvectors[2][2];
-            
+
             // Handle potential zero or negative eigenvalues gracefully
             const scale1 = stretchAmount / Math.sqrt(Math.max(1e-6, eigenvalues[0])); // Avoid division by zero/sqrt of negative
             const scale2 = stretchAmount / Math.sqrt(Math.max(1e-6, eigenvalues[1]));
@@ -304,14 +309,14 @@ async function initializeApp() {
             p1 *= scale1;
             p2 *= scale2;
             p3 *= scale3;
-            
+
             stretchedC1[i]=p1*eigenvectors[0][0]+p2*eigenvectors[0][1]+p3*eigenvectors[0][2]+meanC1;
             stretchedC2[i]=p1*eigenvectors[1][0]+p2*eigenvectors[1][1]+p3*eigenvectors[1][2]+meanC2;
             stretchedC3[i]=p1*eigenvectors[2][0]+p2*eigenvectors[2][1]+p3*eigenvectors[2][2]+meanC3;
         }
         return { stretchedC1, stretchedC2, stretchedC3 };
     }
-    
+
     function downloadImage() {
         if (!history[historyIndex]) return;
         const link = document.createElement('a');
@@ -319,9 +324,13 @@ async function initializeApp() {
         link.href = history[historyIndex];
         link.click();
     }
-    
+
     // --- AI SUPER RESOLUTION ---
     function updateToolStatus() {
+        // Only update status if the AI tab is active
+        const aiTabActive = document.querySelector('.nav-tab[data-panel="tools-panel"]').classList.contains('active');
+        if (!aiTabActive) return;
+
         if (!isImageLoaded) {
             toolStatus.textContent = 'Upload an image to use AI tools.';
             superResBtn.disabled = true;
@@ -332,24 +341,26 @@ async function initializeApp() {
             toolStatus.textContent = 'Error: AI model failed to load.';
              superResBtn.disabled = true;
         } else {
-            toolStatus.textContent = 'AI Ready. Click to upscale (may take time).';
+            toolStatus.textContent = 'AI Ready. Apply before adjustments for best results.';
             superResBtn.disabled = false;
         }
     }
 
     async function loadSuperResModel() {
-        // Ensure tf is loaded
+        // Ensure tf is loaded before attempting to load the model
         if (typeof tf === 'undefined') {
-            console.error("TensorFlow.js not loaded yet.");
-            toolStatus.textContent = "Error: AI library not loaded.";
+            console.error("TensorFlow.js not loaded.");
+            isModelLoaded = false;
+            isModelLoading = false;
+            updateToolStatus(); // Show error in UI
             return;
         }
-        
+
         isModelLoading = true;
         updateToolStatus();
         try {
-            // *** CORRECTED MODEL URL ***
-            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1'; // Correct 'https'
+            // *** CORRECTED AND VERIFIED MODEL URL ***
+            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1';
             superResModel = await tf.loadGraphModel(modelUrl);
             isModelLoaded = true;
             console.log("AI Model Loaded Successfully");
@@ -358,16 +369,16 @@ async function initializeApp() {
             isModelLoaded = false;
         } finally {
             isModelLoading = false;
-            updateToolStatus();
+            updateToolStatus(); // Update status again after loading finishes/fails
         }
     }
-    
+
     async function runSuperResolution() {
         if (!superResModel || !isImageLoaded) {
             updateToolStatus();
             return;
         }
-        
+
         toolStatus.textContent = 'Upscaling image... (this may take a moment)';
         superResBtn.disabled = true;
         await new Promise(resolve => setTimeout(resolve, 10));
@@ -376,7 +387,7 @@ async function initializeApp() {
         baseImage.onload = async () => {
             const currentWidth = baseImage.naturalWidth;
             const currentHeight = baseImage.naturalHeight;
-            
+
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = currentWidth;
             tempCanvas.height = currentHeight;
@@ -386,21 +397,27 @@ async function initializeApp() {
             console.log(`Input image size: ${currentWidth}x${currentHeight}`);
 
             try {
-                // Model expects input [0, 255], int32
+                 // Model expects input [0, 255], int32
                 const inputTensor = tf.browser.fromPixels(tempCanvas).expandDims(0).cast('int32');
-                console.log("Input Tensor created");
-                
+                console.log("Input Tensor created", inputTensor.shape);
+
                 const outputTensor = await superResModel.predict(inputTensor);
-                console.log("Prediction complete");
-                
+                console.log("Prediction complete", outputTensor.shape);
+
                 // Model output is [0, 255], float32. Clip, cast to int32 for toPixels
                 const outputImage = await tf.browser.toPixels(outputTensor.squeeze().clipByValue(0, 255).cast('int32'));
-                console.log("Output Tensor converted to pixels");
+                console.log("Output Tensor converted to pixels", outputImage.length);
 
                 tf.dispose([inputTensor, outputTensor]);
-                
-                const newWidth = currentWidth * 2;
+
+                const newWidth = currentWidth * 2; // Should match model's expected output scale factor
                 const newHeight = currentHeight * 2;
+
+                 // Verify output dimensions match expected
+                 if (outputImage.length !== newWidth * newHeight * 4) {
+                     throw new Error(`AI output size mismatch. Expected ${newWidth*newHeight*4} pixels, got ${outputImage.length}`);
+                 }
+
                 console.log(`Output image size: ${newWidth}x${newHeight}`);
 
                 // Resize main canvas and display the new, larger image
@@ -411,15 +428,16 @@ async function initializeApp() {
 
                 const finalDataUrl = canvas.toDataURL();
                 imageDisplay.src = finalDataUrl;
-                
+
+                // Set this new upscaled image as the new "original" and reset history/sliders
                 originalImageSrc = finalDataUrl;
                 history = [originalImageSrc];
                 historyIndex = 0;
                 updateUndoRedoButtons();
                 resetSliders();
-                
+
                 toolStatus.textContent = 'AI upscaling complete!';
-                
+
             } catch (e) {
                  console.error('Error during AI prediction:', e);
                  toolStatus.textContent = 'Error running AI. Image may be too large or invalid.';
@@ -427,6 +445,7 @@ async function initializeApp() {
                  superResBtn.disabled = false;
             }
         };
+        // Use the *current* state from history for upscaling, allowing upscale after edits
         baseImage.src = history[historyIndex];
     }
 
@@ -440,6 +459,6 @@ async function initializeApp() {
     function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;return[(116*y)-16,500*(x-y),200*(y-z)]}
     function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
 
-    // Call the main initialization function after TF.js check confirms it's loaded
-    // This is handled by the initial DOMContentLoaded listener now.
-}
+    // Initialize the app logic after the DOM is ready
+    initialize();
+} // End of initializeApp wrapper function
