@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js" defer></script>
-    <script src="script.js" defer></script>
+    <script src="script.js" async defer></script>
 </head>
 <body>
     <div class="app-container">
@@ -43,7 +43,7 @@
                     <input type="range" id="stretch" min="1" max="100" value="50">
                 </div>
             </div>
-            
+
             <div id="adjust-panel" class="control-panel">
                 <div class="slider-grid">
                     <div class="slider"><label for="exposure">Exposure</label><input type="range" id="exposure" min="-100" max="100" value="0"></div>
@@ -55,7 +55,7 @@
                     <div class="slider"><label for="sharpen">Sharpen</label><input type="range" id="sharpen" min="0" max="100" value="0" disabled></div>
                 </div>
             </div>
-            
+
             <div id="tools-panel" class="control-panel">
                  <button class="tool-btn" id="super-res-btn" disabled>AI Super-Resolution (2x)</button>
                  <p id="tool-status">For best results, apply AI Super-Resolution before using Colorspace or Adjustments.</p>
@@ -67,7 +67,7 @@
                 <button class="nav-tab" data-panel="tools-panel" title="AI Tools">AI</button>
             </nav>
         </footer>
-        
+
         <input type="file" id="imageLoader" accept="image/*" style="display: none;">
     </div>
 </body>
