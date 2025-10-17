@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isModelLoading = false;
     let isModelLoaded = false;
     let isImageLoaded = false;
-    let tfReady = false; // Flag to track TensorFlow.js readiness
+    let tfReady = (typeof tf !== 'undefined'); // Check initial TF state
 
     // --- DEBOUNCE UTILITY ---
     const debounce = (func, delay) => {
@@ -64,9 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- CORE APP LOGIC ---
-    const initializeCoreApp = () => { // Renamed to run immediately
-        console.log("Initializing core app listeners...");
+    // --- CORE APP EVENT LISTENERS SETUP ---
+    const setupCoreEventListeners = () => {
+        console.log("Setting up core event listeners...");
         navTabs.forEach(tab => tab.addEventListener('click', () => {
             navTabs.forEach(t => t.classList.remove('active'));
             controlPanels.forEach(p => p.classList.remove('active'));
@@ -75,9 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tab.dataset.panel === 'tools-panel') updateToolStatus();
         }));
 
-        // **Ensure upload listeners are set up immediately**
-        imageDisplay.addEventListener('click', () => { if (!originalImageSrc) imageLoader.click(); });
-        imageLoader.addEventListener('change', handleImageUpload);
+        // **Setup upload listeners immediately**
+        if (imageDisplay && imageLoader) {
+            imageDisplay.addEventListener('click', () => { if (!originalImageSrc) imageLoader.click(); });
+            imageLoader.addEventListener('change', handleImageUpload);
+            console.log("Upload listeners attached.");
+        } else {
+            console.error("Image display or loader element not found!");
+        }
+
 
         colorspaceButtons.forEach(button => button.addEventListener('click', () => {
             colorspaceButtons.forEach(btn => btn.classList.remove('active'));
@@ -112,12 +118,10 @@ document.addEventListener('DOMContentLoaded', () => {
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
         superResBtn.addEventListener('click', runSuperResolution);
-
-        console.log("Core app listeners initialized.");
     };
 
     function handleImageUpload(event) {
-        console.log("Image upload triggered.");
+        console.log("handleImageUpload called.");
         const file = event.target.files[0];
         if (!file) return;
         isImageLoaded = false;
@@ -128,19 +132,24 @@ document.addEventListener('DOMContentLoaded', () => {
             history = [originalImageSrc];
             historyIndex = 0;
             isImageLoaded = true;
-            imageDisplay.src = originalImageSrc; // Display original immediately
+            imageDisplay.src = originalImageSrc;
             updateUndoRedoButtons();
             downloadBtn.disabled = false;
             updateToolStatus();
             resetSliders();
-            console.log("Image loaded and displayed.");
+            console.log("Image loaded and displayed via handleImageUpload.");
+        };
+        reader.onerror = (e) => {
+            console.error("FileReader error:", e);
         };
         reader.readAsDataURL(file);
     }
 
+
     function resetSliders() {
         allSliders.forEach(slider => {
-             slider.value = slider.getAttribute('value');
+            // Use default value specified in HTML, fallback to 0 or 50
+            slider.value = slider.defaultValue || (slider.id === 'stretch' ? 50 : 0);
         });
     }
 
@@ -151,13 +160,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const baseImage = new Image();
         baseImage.onload = () => {
-            // Adjust canvas size only if needed
             if (canvas.width !== baseImage.naturalWidth || canvas.height !== baseImage.naturalHeight) {
                 canvas.width = baseImage.naturalWidth;
                 canvas.height = baseImage.naturalHeight;
             }
             ctx.drawImage(baseImage, 0, 0);
-
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
 
@@ -167,11 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 imageData.data.set(finalPixelData);
             } catch (error) {
                 console.error("Error during image processing:", error);
-                // Optionally revert to original image on error or show a message
-                ctx.drawImage(baseImage, 0, 0); // Revert canvas
-                imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); // Get original data again
+                ctx.drawImage(baseImage, 0, 0); // Revert canvas on error
+                imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             }
-
 
             ctx.putImageData(imageData, 0, 0);
             const finalDataUrl = canvas.toDataURL();
@@ -186,14 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
              console.log("Processing complete.");
         };
-        baseImage.onerror = () => {
-            console.error("Error loading base image for processing.");
-        };
+        baseImage.onerror = () => console.error("Error loading base image for processing.");
         baseImage.src = originalImageSrc;
     }
 
     function applyAdjustments(pixels) {
-        // ... (This function remains the same) ...
+        // ... (This function remains unchanged) ...
         const exposure = parseFloat(document.getElementById('exposure').value);
         const shadows = parseFloat(document.getElementById('shadows').value);
         const brightness = parseFloat(document.getElementById('brightness').value);
@@ -240,8 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function runDStretch(imageData) {
-       // ... (This function remains the same) ...
-        const nPixels = imageData.length / 4;
+       // ... (This function remains unchanged) ...
+       const nPixels = imageData.length / 4;
         let c1 = [], c2 = [], c3 = [];
 
         for (let i = 0; i < nPixels; i++) {
@@ -265,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function performDstretch(c1, c2, c3) {
-       // ... (This function remains the same) ...
+       // ... (This function remains unchanged) ...
         const meanC1 = calculateMean(c1), meanC2 = calculateMean(c2), meanC3 = calculateMean(c3);
         const covMatrix = calculateCovarianceMatrix(c1, c2, c3, meanC1, meanC2, meanC3);
         const { eigenvectors, eigenvalues } = eigenDecomposition(covMatrix);
@@ -303,31 +306,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- AI SUPER RESOLUTION ---
     function updateToolStatus() {
         const aiTabActive = document.querySelector('.nav-tab[data-panel="tools-panel"]').classList.contains('active');
-         const updateText = (text) => { if (aiTabActive) toolStatus.textContent = text; };
+         const updateText = (text) => { if (aiTabActive && toolStatus) toolStatus.textContent = text; }; // Added check for toolStatus
 
         if (!isImageLoaded) {
             updateText('Upload an image to use AI tools.');
-            superResBtn.disabled = true;
-        } else if (!tfReady) {
+            if (superResBtn) superResBtn.disabled = true;
+        } else if (!tfReady) { // Check tfReady flag
             updateText('Error: AI library failed to load.');
-            superResBtn.disabled = true;
+            if (superResBtn) superResBtn.disabled = true;
         } else if (isModelLoading) {
              updateText('Loading AI model... (this can take ~30s)');
-             superResBtn.disabled = true;
+             if (superResBtn) superResBtn.disabled = true;
         } else if (!isModelLoaded) {
             updateText('Error: AI model failed to load.');
-             superResBtn.disabled = true;
+             if (superResBtn) superResBtn.disabled = true;
         } else {
             updateText('AI Ready. Apply before adjustments for best results.');
-            superResBtn.disabled = false;
+            if (superResBtn) superResBtn.disabled = false;
         }
     }
 
     async function loadSuperResModel() {
+        // Only proceed if tf is ready
         if (!tfReady) {
-            console.error("TensorFlow.js is not ready, cannot load model.");
-            isModelLoaded = false;
-            isModelLoading = false;
+            console.log("TensorFlow.js not ready, deferring AI model load.");
             updateToolStatus();
             return;
         }
@@ -339,6 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1';
             superResModel = await tf.loadGraphModel(modelUrl);
+            tf.tidy(() => { // Warm up the model with a tiny dummy input
+              const dummyInput = tf.zeros([1, 64, 64, 3], 'int32');
+              superResModel.predict(dummyInput);
+            });
             isModelLoaded = true;
             console.log("AI Model Loaded Successfully");
         } catch (e) {
@@ -401,33 +407,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified) ---
     function calculateMean(a){return a.reduce((b,c)=>b+c,0)/a.length}
     function calculateCovarianceMatrix(c1,c2,c3,m1,m2,m3){const n=c1.length;let a=0,b=0,c=0,d=0,e=0,f=0;for(let i=0;i<n;i++){const g=c1[i]-m1,h=c2[i]-m2,j=c3[i]-m3;a+=g*g;b+=h*h;c+=j*j;d+=g*h;e+=g*j;f+=h*j}const k=n-1;return[[a/k,d/k,e/k],[d/k,b/k,f/k],[e/k,f/k,c/k]]}
-    function eigenDecomposition(a){if(typeof math==='undefined')return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]};try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.error("Eigen Decomp Error:",c);return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
+    function eigenDecomposition(a){if(typeof math==='undefined'){console.error("math.js not loaded for eigenDecomposition"); return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.error("Eigen Decomp Error:",c);return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
     function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
     function convertToRgb(c1,c2,c3,cs){let r,g,b;try{switch(cs){case'LAB':return labToRgb(c1,c2,c3);case'YRE':r=c2;g=c3;b=(c1-0.587*g-0.299*r)/0.114||0;break;case'LRE':r=c2;g=c3;b=(c1-0.7152*g-0.2126*r)/0.0722||0;break;case'YBK':g=255-c3;b=c2;r=(c1-0.587*g-0.114*b)/0.299||0;break;default:r=c1;g=c2;b=c3;break}}catch(e){console.error("Error converting back to RGB:",e);return[0,0,0]}return[r,g,b];}
     function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;return[(116*y)-16,500*(x-y),200*(y-z)]}
     function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
 
-     // --- CHECK TFJS AND INITIALIZE ---
-     const checkTFInterval = setInterval(() => {
+    // --- TFJS READY CHECK AND INITIALIZATION ---
+    // Function to check if TFJS is ready
+    const checkTfReady = () => {
         if (typeof tf !== 'undefined') {
-            clearInterval(checkTFInterval);
-            console.log("TensorFlow.js is ready.");
             tfReady = true;
-            initialize(); // Initialize the app now that TF is ready
+            console.log("TensorFlow.js is ready.");
+            setupCoreEventListeners(); // Setup basic listeners first
+            loadSuperResModel();     // Then attempt to load the model
         } else {
             console.log("Waiting for TensorFlow.js...");
+            setTimeout(checkTfReady, 100); // Check again shortly
         }
-    }, 100);
+    };
 
-    // Timeout check
-    setTimeout(() => {
+    // Timeout for TFJS loading
+    const tfLoadTimeout = setTimeout(() => {
         if (!tfReady) {
-            clearInterval(checkTFInterval);
-            console.error("TensorFlow.js did not load in time.");
-            toolStatus.textContent = "Error: AI library failed to load. Refresh may help.";
-            // Still initialize the rest of the app, just without AI
-            initialize();
+            console.error("TensorFlow.js failed to load within 15 seconds.");
+            toolStatus.textContent = "Error: AI library timeout.";
+            // Still setup core listeners even if AI fails
+            if(!document.getElementById('imageLoader').listenerAttached) { // Prevent double-attaching
+               setupCoreEventListeners();
+            }
         }
-    }, 15000); // 15 second timeout
+    }, 15000);
+
+    // Start the check
+    checkTfReady();
+
+     // Mark listener attachment to prevent double init on timeout
+     if(imageLoader) imageLoader.listenerAttached = true;
+
 
 }); // End DOMContentLoaded
