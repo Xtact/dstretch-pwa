@@ -127,28 +127,12 @@ input[type=range][disabled] { opacity: 0.4; }
     border: none;
     color: #8e8e93;
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600; /* Made AI bold */
     cursor: pointer;
     flex-grow: 1;
     padding: 0;
 }
 .nav-tab.active { color: #ffd60a; }
-
-/* NEW STYLE FOR THE ICON TAB */
-.nav-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.nav-icon svg {
-    width: 24px;
-    height: 24px;
-    fill: #8e8e93;
-}
-.nav-tab.active .nav-icon svg {
-    fill: #ffd60a;
-}
-/* End of new styles */
 
 /* Carousel */
 .carousel {
