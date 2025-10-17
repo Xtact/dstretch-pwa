@@ -78,14 +78,19 @@
             </div>
             
             <div id="tools-panel" class="control-panel">
-                 <button class="tool-btn" id="super-res-btn">AI Super-Resolution (2x)</button>
+                 <button class="tool-btn" id="super-res-btn" disabled>AI Super-Resolution (2x)</button>
                  <p id="tool-status"></p>
             </div>
 
             <nav class="main-nav">
                 <button class="nav-tab active" data-panel="colorspace-panel">Colorspace</button>
                 <button class="nav-tab" data-panel="adjust-panel">Adjust</button>
-                <button class="nav-tab" data-panel="tools-panel">Tools</button>
+                <button class="nav-tab nav-icon" data-panel="tools-panel" title="Tools">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 0 0 1.5 12c0 .343.02.681.057 1.018 1.288.078 2.503.684 3.443 1.624h1.5v1.5c.618.42 1.356.702 2.162.83V21a.75.75 0 0 0 1.5 0v-1.03a7.5 7.5 0 0 0 4.5-4.5H18a.75.75 0 0 0 0-1.5h-1.03a7.5 7.5 0 0 0-4.5-4.5V6.75a.75.75 0 0 0-.75-.75V4.06ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                        <path d="M16.805 2.22a.75.75 0 0 0-1.06 0l-1.5 1.5a.75.75 0 0 0 1.06 1.06l1.5-1.5a.75.75 0 0 0 0-1.06ZM19.25 4.695a.75.75 0 0 0 0 1.06l-1.5 1.5a.75.75 0 0 0 1.06 1.06l1.5-1.5a.75.75 0 0 0 0-1.06Z" />
+                    </svg>
+                </button>
             </nav>
         </footer>
         
