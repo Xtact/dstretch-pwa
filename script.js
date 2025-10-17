@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedColorspace = 'RGB';
     let debouncedProcess;
     let superResModel = null;
+    let isModelLoaded = false;
+    let isImageLoaded = false;
 
     // --- DEBOUNCE UTILITY ---
     const debounce = (func, delay) => {
@@ -78,6 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
             controlPanels.forEach(p => p.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById(tab.dataset.panel).classList.add('active');
+            
+            // Update tool status when tab is clicked
+            if (tab.dataset.panel === 'tools-panel') {
+                updateToolStatus();
+            }
         }));
 
         imageDisplay.addEventListener('click', () => { if (!originalImageSrc) imageLoader.click(); });
@@ -94,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         allSliders.forEach(slider => {
             if (slider.id !== 'sharpen') {
                  slider.addEventListener('input', () => { if (originalImageSrc) debouncedProcess(false); });
+                 // Update history only when user finishes sliding
                  slider.addEventListener('change', () => { if (originalImageSrc) updateHistory(imageDisplay.src); });
             }
         });
@@ -121,13 +129,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleImageUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
+        isImageLoaded = false;
         const reader = new FileReader();
         reader.onload = e => {
             originalImageSrc = e.target.result;
             history = [originalImageSrc];
             historyIndex = 0;
+            isImageLoaded = true;
             updateUndoRedoButtons();
             downloadBtn.disabled = false;
+            updateToolStatus(); // Check if model is ready
             resetAndProcess();
         };
         reader.readAsDataURL(file);
@@ -138,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(slider.id === 'stretch') slider.value = 50;
             else slider.value = 0;
         });
-        processImage(false); // Don't create history for the initial load
+        processImage(false);
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
@@ -169,10 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isNewHistoryState) {
                 updateHistory(finalDataUrl);
             } else {
-                history[historyIndex] = finalDataUrl; // Overwrite current state
+                history[historyIndex] = finalDataUrl;
             }
         };
-        baseImage.src = originalImageSrc; // Always start from the pristine original
+        baseImage.src = originalImageSrc;
     }
 
     function applyAdjustments(pixels) {
@@ -190,27 +201,22 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < pixels.length; i += 4) {
             let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
 
-            // Brightness & Exposure
             r += totalBrightness; g += totalBrightness; b += totalBrightness;
 
-            // Shadows
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
             if (luma < 128) {
                 const shadowFactor = shadows * (1 - luma / 128);
                 r += shadowFactor; g += shadowFactor; b += shadowFactor;
             }
 
-            // Contrast
             r = contrastFactor * (r - 128) + 128;
             g = contrastFactor * (g - 128) + 128;
             b = contrastFactor * (b - 128) + 128;
 
-            // Black Point
             r = Math.max(r, 255 * blackPoint);
             g = Math.max(g, 255 * blackPoint);
             b = Math.max(b, 255 * blackPoint);
 
-            // Saturation
             if (satFactor !== 0) {
                 const avg = (r + g + b) / 3;
                 r = avg + (r - avg) * (1 + satFactor);
@@ -278,27 +284,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- AI SUPER RESOLUTION ---
+    function updateToolStatus() {
+        if (!isImageLoaded) {
+            toolStatus.textContent = 'Upload an image to use AI tools.';
+            superResBtn.disabled = true;
+        } else if (!isModelLoaded) {
+            toolStatus.textContent = 'Loading AI model...';
+            superResBtn.disabled = true;
+        } else {
+            toolStatus.textContent = 'AI Ready. Click to upscale.';
+            superResBtn.disabled = false;
+        }
+    }
+
     async function loadSuperResModel() {
         try {
-            toolStatus.textContent = 'Loading AI model...';
-            const modelUrl = 'https://tfhub.dev/captain-pool/esrgan-tfjs/1';
+            updateToolStatus(); // Show "Loading..."
+            // Corrected model URL: using tfjs-models/esrgan which is a pre-quantized 2x model
+            const modelUrl = 'https://tfhub.dev/tensorflow/tfjs-model/esrgan/bfp/2/default/1';
             superResModel = await tf.loadGraphModel(modelUrl);
-            toolStatus.textContent = 'AI model loaded.';
-            superResBtn.disabled = false;
+            isModelLoaded = true;
+            updateToolStatus(); // Show "AI Ready"
         } catch (e) {
             console.error('Failed to load AI model:', e);
-            toolStatus.textContent = 'Error loading AI model.';
+            toolStatus.textContent = 'Error loading AI model. Check console for details.';
+            superResBtn.disabled = true;
         }
     }
     
     async function runSuperResolution() {
-        if (!superResModel || !history[historyIndex]) {
-            toolStatus.textContent = 'AI not ready or no image.';
+        if (!superResModel || !isImageLoaded) {
+            updateToolStatus();
             return;
         }
         
         toolStatus.textContent = 'Upscaling image... (this may take a moment)';
         superResBtn.disabled = true;
+        await new Promise(resolve => setTimeout(resolve, 0)); // Allow UI to update
 
         const baseImage = new Image();
         baseImage.onload = async () => {
@@ -307,16 +329,20 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.drawImage(baseImage, 0, 0);
 
             // Convert image to tensor
-            const inputTensor = tf.browser.fromPixels(canvas).expandDims(0).cast('float32');
+            // ESRGAN models expect input in range [0, 1]
+            const inputTensor = tf.browser.fromPixels(canvas).expandDims(0).div(255.0);
             
             // Run the model
             const outputTensor = await superResModel.predict(inputTensor);
             
-            // Convert tensor back to image
-            const outputImage = await tf.browser.toPixels(outputTensor.squeeze().clipByValue(0, 255).cast('int32'));
+            // Convert tensor back to image (output is [0,1], convert to [0,255] and to int32)
+            const outputImage = await tf.browser.toPixels(outputTensor.squeeze().mul(255.0).clipByValue(0, 255).cast('int32'));
+            
+            // Dispose tensors to free up memory
+            tf.dispose([inputTensor, outputTensor]);
             
             // Display the new, larger image
-            const newWidth = canvas.width * 2;
+            const newWidth = canvas.width * 2; // ESRGAN 2x model
             const newHeight = canvas.height * 2;
             canvas.width = newWidth;
             canvas.height = newHeight;
@@ -326,13 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalDataUrl = canvas.toDataURL();
             imageDisplay.src = finalDataUrl;
             
-            // Set this new upscaled image as the new "original"
+            // Set this new upscaled image as the new "original" and reset history
             originalImageSrc = finalDataUrl;
             history = [originalImageSrc];
             historyIndex = 0;
             updateUndoRedoButtons();
             
-            tf.dispose([inputTensor, outputTensor]);
             toolStatus.textContent = 'AI upscaling complete!';
             superResBtn.disabled = false;
         };
