@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Dstretch AI Pro</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js" defer></script>
     <script src="script.js" defer></script>
 </head>
@@ -17,7 +18,7 @@
                 <button class="icon-btn" id="redo-btn" disabled>⟳</button>
             </div>
             <span class="header-title">Dstretch AI Pro</span>
-            <button class="icon-btn" id="download-btn">↓</button>
+            <button class="icon-btn" id="download-btn" disabled>↓</button>
         </header>
 
         <main class="image-workspace">
@@ -42,18 +43,44 @@
                     <input type="range" id="stretch" min="1" max="100" value="50">
                 </div>
             </div>
+            
             <div id="adjust-panel" class="control-panel">
                 <div class="slider-grid">
-                    <div class="slider"><label for="exposure">Exposure</label><input type="range" id="exposure" min="-100" max="100" value="0"></div>
-                    <div class="slider"><label for="shadows">Shadows</label><input type="range" id="shadows" min="0" max="100" value="0"></div>
-                    <div class="slider"><label for="brightness">Brightness</label><input type="range" id="brightness" min="-100" max="100" value="0"></div>
-                    <div class="slider"><label for="contrast">Contrast</label><input type="range" id="contrast" min="-100" max="100" value="0"></div>
-                    <div class="slider"><label for="blackPoint">Black Point</label><input type="range" id="blackPoint" min="0" max="50" value="0"></div>
-                    <div class="slider"><label for="saturation">Saturation</label><input type="range" id="saturation" min="-100" max="100" value="0"></div>
-                    <div class="slider"><label for="sharpen">Sharpen</label><input type="range" id="sharpen" min="0" max="100" value="0" disabled></div>
+                    <div class="slider">
+                        <label for="exposure">Exposure</label>
+                        <input type="range" id="exposure" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider">
+                        <label for="shadows">Shadows</label>
+                        <input type="range" id="shadows" min="0" max="100" value="0">
+                    </div>
+                    <div class="slider">
+                        <label for="brightness">Brightness</label>
+                        <input type="range" id="brightness" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider">
+                        <label for="contrast">Contrast</label>
+                        <input type="range" id="contrast" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider">
+                        <label for="blackPoint">Black Point</label>
+                        <input type="range" id="blackPoint" min="0" max="50" value="0">
+                    </div>
+                    <div class="slider">
+                        <label for="saturation">Saturation</label>
+                        <input type="range" id="saturation" min="-100" max="100" value="0">
+                    </div>
+                    <div class="slider">
+                        <label for="sharpen">Sharpen</label>
+                        <input type="range" id="sharpen" min="0" max="100" value="0" disabled>
+                    </div>
                 </div>
             </div>
-            <div id="tools-panel" class="control-panel"><p>More tools coming soon!</p></div>
+            
+            <div id="tools-panel" class="control-panel">
+                 <button class="tool-btn" id="super-res-btn">AI Super-Resolution (2x)</button>
+                 <p id="tool-status"></p>
+            </div>
 
             <nav class="main-nav">
                 <button class="nav-tab active" data-panel="colorspace-panel">Colorspace</button>
