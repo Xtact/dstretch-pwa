@@ -15,7 +15,7 @@
                 <button class="icon-btn" id="undo-btn" disabled>⟲</button>
                 <button class="icon-btn" id="redo-btn" disabled>⟳</button>
             </div>
-            <span class="header-title">Colorspace</span>
+            <span class="header-title" id="main-header-title">Colorspace</span>
             <button class="icon-btn" id="download-btn" disabled>↓</button>
         </header>
 
@@ -41,7 +41,7 @@
                     <input type="range" id="stretch" min="1" max="100" value="50">
                 </div>
             </div>
-            
+
             <div id="adjust-panel" class="control-panel">
                 <div class="slider-grid">
                     <div class="slider"><label for="exposure">Exposure</label><input type="range" id="exposure" min="-100" max="100" value="0"></div>
@@ -53,7 +53,7 @@
                     <div class="slider"><label for="sharpen">Sharpen</label><input type="range" id="sharpen" min="0" max="100" value="0" disabled></div>
                 </div>
             </div>
-            
+
             <div id="tools-panel" class="control-panel">
                  <p>More tools coming soon!</p>
             </div>
@@ -64,7 +64,7 @@
                 <button class="nav-tab" data-panel="tools-panel" title="Tools">Tools</button>
             </nav>
         </footer>
-        
+
         <input type="file" id="imageLoader" accept="image/*" style="display: none;">
     </div>
 </body>
