@@ -1,170 +1,57 @@
 /* General Setup */
 :root {
     --header-height: 50px;
-    --footer-height: 220px; /* Adjusted slightly */
+    --footer-height: 220px;
     --nav-height: 50px;
 }
 body, html {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #121212; /* Darker background */
-    color: #fff;
-    user-select: none; /* Prevent text selection */
-    -webkit-user-select: none; /* Safari */
+    background-color: #121212; color: #fff; user-select: none; -webkit-user-select: none;
 }
-.app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
+.app-container { display: flex; flex-direction: column; height: 100%; }
 canvas { display: none; }
 
 /* Header */
 .app-header {
-    height: var(--header-height);
-    display: grid;
-    grid-template-columns: auto auto 1fr auto; /* Adjust columns */
-    align-items: center;
-    padding: 0 15px;
-    background-color: #1c1c1e; /* Slightly lighter header */
-    border-bottom: 1px solid #38383a; /* Subtle border */
-    gap: 15px;
-    flex-shrink: 0; /* Prevent header shrinking */
+    height: var(--header-height); display: grid; grid-template-columns: auto auto 1fr auto;
+    align-items: center; padding: 0 15px; background-color: #1c1c1e;
+    border-bottom: 1px solid #38383a; gap: 15px; flex-shrink: 0;
 }
-.header-title {
-    font-weight: 600;
-    text-align: center;
-    font-size: 1rem; /* iOS like title size */
-}
-.header-btn, .icon-btn {
-    background: none;
-    border: none;
-    color: #007aff; /* iOS blue */
-    font-size: 1rem;
-    cursor: pointer;
-    padding: 5px; /* Consistent padding */
-}
-.icon-btn {
-    font-size: 1.5rem; /* Larger icons */
-    line-height: 1; /* Align icons properly */
-}
-.icon-btn:disabled, .header-btn:disabled {
-    color: #555; /* Dim disabled buttons */
-    cursor: not-allowed;
-}
+.header-title { font-weight: 600; text-align: center; font-size: 1rem; }
+.header-btn, .icon-btn { background: none; border: none; color: #007aff; font-size: 1rem; cursor: pointer; padding: 5px; }
+.icon-btn { font-size: 1.5rem; line-height: 1; }
+.icon-btn:disabled, .header-btn:disabled { color: #555; cursor: not-allowed; }
 .history-controls { display: flex; gap: 10px; }
 
 /* Image Workspace */
-.image-workspace {
-    flex-grow: 1; /* Take remaining space */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-    overflow: auto; /* Allow scrolling if image is too big */
-}
+.image-workspace { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: auto; }
 .image-container { max-width: 100%; max-height: 100%; }
-#imageDisplay {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain; /* Scale image down to fit */
-    cursor: pointer;
-}
+#imageDisplay { max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer; }
 
 /* Footer & Controls */
-.app-footer {
-    height: var(--footer-height);
-    background-color: #1c1c1e;
-    display: flex;
-    flex-direction: column;
-    border-top: 1px solid #38383a;
-    flex-shrink: 0; /* Prevent footer shrinking */
-}
-.control-panel {
-    display: none; /* Hide inactive panels */
-    flex-grow: 1; /* Take space above nav */
-    padding: 10px 15px;
-    overflow-y: auto; /* Allow scrolling within panel */
-}
-.control-panel.active { display: block; } /* Show active panel */
+.app-footer { height: var(--footer-height); background-color: #1c1c1e; display: flex; flex-direction: column; border-top: 1px solid #38383a; flex-shrink: 0; }
+.control-panel { display: none; flex-grow: 1; padding: 10px 15px; overflow-y: auto; }
+.control-panel.active { display: block; }
 
 /* Slider Redesign */
-.slider-grid {
-    display: grid;
-    grid-template-columns: 1fr; /* Default to single column */
-    gap: 10px; /* Space between sliders */
-}
-.slider {
-    /* Label on top */
-}
-.slider label {
-    display: block;
-    font-size: 0.8rem;
-    color: #ccc; /* Lighter label color */
-    margin-bottom: 4px;
-}
-.slider input[type="range"] {
-    width: 100%; /* Full width */
-    margin: 0; /* Remove default margin */
-}
+.slider-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.slider label { display: block; font-size: 0.8rem; color: #ccc; margin-bottom: 4px; }
+.slider input[type="range"] { width: 100%; margin: 0; }
 input[type=range][disabled] { opacity: 0.4; }
 
-
 /* Main Navigation Tabs */
-.main-nav {
-    height: var(--nav-height);
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid #38383a;
-    flex-shrink: 0;
-}
-.nav-tab {
-    background: none;
-    border: none;
-    color: #8e8e93; /* iOS inactive tab color */
-    font-size: 0.9rem;
-    font-weight: 500; /* Medium weight */
-    cursor: pointer;
-    flex-grow: 1;
-    padding: 0;
-}
-.nav-tab.active { color: #ffd60a; } /* iOS active yellow */
+.main-nav { height: var(--nav-height); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #38383a; flex-shrink: 0; }
+.nav-tab { background: none; border: none; color: #8e8e93; font-size: 0.9rem; font-weight: 500; cursor: pointer; flex-grow: 1; padding: 0; }
+.nav-tab.active { color: #ffd60a; }
 
 /* Carousel */
-.carousel {
-    display: flex;
-    align-items: center;
-    overflow-x: auto; /* Horizontal scroll */
-    padding: 10px 0; /* Vertical padding */
-    gap: 10px; /* Space between buttons */
-}
-.cs-btn {
-    padding: 8px 15px;
-    border: 1px solid #555;
-    background-color: #3a3a3c; /* Dark button background */
-    color: #fff;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    white-space: nowrap; /* Prevent text wrapping */
-    transition: background-color 0.2s, border-color 0.2s;
-}
-.cs-btn.active {
-    background-color: #007aff; /* iOS blue */
-    border-color: #007aff;
-    font-weight: 600;
-}
+.carousel { display: flex; align-items: center; overflow-x: auto; padding: 10px 0; gap: 10px; }
+.cs-btn { padding: 8px 15px; border: 1px solid #555; background-color: #3a3a3c; color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; transition: background-color 0.2s, border-color 0.2s; }
+.cs-btn.active { background-color: #007aff; border-color: #007aff; font-weight: 600; }
 
 /* Responsive Design for Landscape */
 @media (orientation: landscape) {
-    :root { --footer-height: 200px; } /* Adjust footer height for landscape */
-    .slider-grid {
-        grid-template-columns: 1fr 1fr; /* Two columns for sliders */
-        column-gap: 20px; /* Space between columns */
-    }
+    :root { --footer-height: 200px; }
+    .slider-grid { grid-template-columns: 1fr 1fr; column-gap: 20px;}
 }
