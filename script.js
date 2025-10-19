@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalImageSrc = null;
     let history = [];
     let historyIndex = -1;
-    let selectedColorspace = 'RGB';
+    // FIX 1: Set default colorspace to RGB (default for the carousel too)
+    let selectedColorspace = 'RGB'; 
     let debouncedProcess;
 
     // --- DEBOUNCE UTILITY ---
@@ -132,17 +133,30 @@ document.addEventListener('DOMContentLoaded', () => {
             history = [originalImageSrc];
             historyIndex = 0;
             updateUndoRedoButtons();
-            resetAndProcess();
+            // FIX 2: Reset and Process to show the *original* image initially
+            resetAndProcess(true); 
         };
         reader.readAsDataURL(file);
     }
 
-    function resetAndProcess() {
+    function resetAndProcess(isInitialLoad = false) {
         allSliders.forEach(slider => {
-            if(slider.id === 'stretch') slider.value = 50;
+            // FIX 3: Set stretch to 1 (minimum/neutral) on load/reset
+            if(slider.id === 'stretch') slider.value = 1;
             else slider.value = 0;
         });
-        processImage(true);
+
+        // Ensure RGB button is visually and functionally active on reset
+        colorspaceButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if(btn.dataset.colorspace === 'RGB') {
+                btn.classList.add('active');
+                selectedColorspace = 'RGB';
+            }
+        });
+        
+        // On initial load, we want a clean history state.
+        processImage(true); 
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
@@ -155,15 +169,24 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.height = baseImage.naturalHeight;
             ctx.drawImage(baseImage, 0, 0);
 
-            // Get a fresh copy of pixel data from the original image
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
 
-            // Step 1: Apply "Adjust" filters to a COPY of the original pixel data
+            // Step 1: Apply "Adjust" filters 
             const adjustedPixels = applyAdjustments(new Uint8ClampedArray(pixels)); 
+            
+            let finalPixelData;
+            const stretchAmount = parseFloat(stretchSlider.value);
+            
+            // FIX 4: Only run DStretch if a color filter or significant stretch is applied
+            if (selectedColorspace !== 'RGB' || stretchAmount > 1.5) { 
+                // Step 2: Run DStretch on the adjusted pixel data
+                finalPixelData = runDStretch(adjustedPixels);
+            } else {
+                // Step 2 Alternate: If in RGB and minimal stretch, the final data is just the adjusted data
+                finalPixelData = adjustedPixels;
+            }
 
-            // Step 2: Run DStretch on the adjusted pixel data
-            const finalPixelData = runDStretch(adjustedPixels);
 
             // Step 3: Display final result and update history
             imageData.data.set(finalPixelData);
@@ -187,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {Uint8ClampedArray} The adjusted pixel data.
      */
     function applyAdjustments(pixels) {
-        // Read values once
         const exposure = parseFloat(document.getElementById('exposure').value);
         const shadows = parseFloat(document.getElementById('shadows').value);
         const brightness = parseFloat(document.getElementById('brightness').value);
@@ -200,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalBrightness = exposure + brightness;
 
         for (let i = 0; i < pixels.length; i += 4) {
-            // Read values as floats for calculation
             let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
 
             // Exposure & Brightness
@@ -209,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Shadows: Simple lift for darker pixels
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
             if (luma < 128) {
-                // Apply a lift that is stronger for darker pixels
                 const shadowFactor = shadows * (1 - luma / 128) * 0.5;
                 r += shadowFactor; g += shadowFactor; b += shadowFactor;
             }
@@ -236,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pixels[i+1] = Math.round(g); 
             pixels[i+2] = Math.round(b);
         }
-        return pixels; // Return the modified array
+        return pixels; 
     }
     
     function runDStretch(imageData) {
@@ -280,6 +300,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ? eigenDecomposition(covMatrix) 
             : { eigenvectors: [[1,0,0],[0,1,0],[0,0,1]], eigenvalues: [1,1,1] };
         
+        // Dstretch only runs if stretchSlider > 1. 
+        // Normalize 1-100 to 0.02-2.0
         const stretchAmount = stretchSlider.value / 50; 
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
