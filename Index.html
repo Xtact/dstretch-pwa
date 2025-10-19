@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Dstretch Pro</title> <link rel="stylesheet" href="style.css">
+    <title>Dstretch AI Pro</title>
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js" defer></script>
     <script src="script.js" defer></script>
 </head>
@@ -15,8 +16,8 @@
                 <button class="icon-btn" id="undo-btn" disabled>⟲</button>
                 <button class="icon-btn" id="redo-btn" disabled>⟳</button>
             </div>
-            <span class="header-title" id="main-header-title">Colorspace</span>
-            <button class="icon-btn" id="download-btn" disabled>↓</button>
+            <span class="header-title">Dstretch AI Pro</span>
+            <button class="icon-btn" id="download-btn">↓</button>
         </header>
 
         <main class="image-workspace">
@@ -41,7 +42,6 @@
                     <input type="range" id="stretch" min="1" max="100" value="50">
                 </div>
             </div>
-
             <div id="adjust-panel" class="control-panel">
                 <div class="slider-grid">
                     <div class="slider"><label for="exposure">Exposure</label><input type="range" id="exposure" min="-100" max="100" value="0"></div>
@@ -53,19 +53,15 @@
                     <div class="slider"><label for="sharpen">Sharpen</label><input type="range" id="sharpen" min="0" max="100" value="0" disabled></div>
                 </div>
             </div>
-
-            <div id="tools-panel" class="control-panel">
-                 <p>More tools coming soon!</p>
-            </div>
+            <div id="tools-panel" class="control-panel"><p>More tools coming soon!</p></div>
 
             <nav class="main-nav">
                 <button class="nav-tab active" data-panel="colorspace-panel">Colorspace</button>
                 <button class="nav-tab" data-panel="adjust-panel">Adjust</button>
-                <button class="nav-tab" data-panel="tools-panel" title="Tools">Tools</button>
+                <button class="nav-tab" data-panel="tools-panel">Tools</button>
             </nav>
         </footer>
-
+        
         <input type="file" id="imageLoader" accept="image/*" style="display: none;">
     </div>
 </body>
-</html>
