@@ -236,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
             b = avg + (b - avg) * (1 + satFactor);
             
             // FIX: Explicitly round the floating point values before assigning.
-            // Uint8ClampedArray will still handle the 0-255 clamping for us.
             pixels[i] = Math.round(r); 
             pixels[i+1] = Math.round(g); 
             pixels[i+2] = Math.round(b);
@@ -263,10 +262,16 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < nPixels; i++) {
             const rgb = convertToRgb(stretchedC1[i], stretchedC2[i], stretchedC3[i], selectedColorspace);
             const pixelIndex = i * 4;
+
+            // FIX: Round the RGB result from DStretch conversion before clamping.
+            const finalR = Math.round(rgb[0]);
+            const finalG = Math.round(rgb[1]);
+            const finalB = Math.round(rgb[2]);
+            
             // Clamp colors and set
-            finalPixelData[pixelIndex] = Math.min(255, Math.max(0, rgb[0]));
-            finalPixelData[pixelIndex + 1] = Math.min(255, Math.max(0, rgb[1]));
-            finalPixelData[pixelIndex + 2] = Math.min(255, Math.max(0, rgb[2]));
+            finalPixelData[pixelIndex] = Math.min(255, Math.max(0, finalR));
+            finalPixelData[pixelIndex + 1] = Math.min(255, Math.max(0, finalG));
+            finalPixelData[pixelIndex + 2] = Math.min(255, Math.max(0, finalB));
             finalPixelData[pixelIndex + 3] = 255; // Keep alpha channel opaque
         }
         return finalPixelData;
