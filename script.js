@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
     const downloadBtn = document.getElementById('download-btn');
+    const cancelBtn = document.getElementById('cancel-btn'); // ADDED: Get cancel button
     
     // All Sliders
     const allSliders = document.querySelectorAll('input[type="range"]');
@@ -65,6 +66,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // ADDED: Cancel Edits Logic
+    const cancelEdits = () => {
+        if (!originalImageSrc) return;
+
+        // Reset all sliders to their default values
+        resetAndProcess(); 
+
+        // Reset the history to only the original image state
+        history = [originalImageSrc];
+        historyIndex = 0;
+        
+        // Update the display to the original image source
+        imageDisplay.src = originalImageSrc;
+
+        // Re-run processImage with the reset values 
+        processImage(false); 
+        
+        updateUndoRedoButtons();
+    }
+    // END ADDED: Cancel Edits Logic
+
+
     // --- CORE APP LOGIC ---
     const initialize = () => {
         navTabs.forEach(tab => tab.addEventListener('click', () => {
@@ -81,19 +104,16 @@ document.addEventListener('DOMContentLoaded', () => {
             colorspaceButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
             selectedColorspace = button.dataset.colorspace;
-            if (originalImageSrc) processImage(true); // Colorspace change is a major change, so no debounce and always history
+            if (originalImageSrc) processImage(true); // Colorspace change is a major change
         }));
         
-        // Debounce only for continuous slider input to prevent lag
-        debouncedProcess = debounce(processImage, 400); 
+        debouncedProcess = debounce(processImage, 400);
         allSliders.forEach(slider => slider.addEventListener('input', () => {
-             // If it's a new "stretch" state, we want a new history entry.
-             // If it's any other slider, we need to run a debounced process.
-             const isNewHistoryState = slider.id === 'stretch';
+             // If it's the 'stretch' slider, save a new history state. Otherwise, just update the current state.
+             const isNewHistoryState = slider.id === 'stretch'; 
              if (originalImageSrc) debouncedProcess(isNewHistoryState); 
         }));
-        
-        // Handling pointer events for before/after comparison
+
         imageDisplay.addEventListener('pointerdown', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = originalImageSrc; });
         imageDisplay.addEventListener('pointerup', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = history[historyIndex]; });
         imageDisplay.addEventListener('pointerleave', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = history[historyIndex]; });
@@ -101,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.addEventListener('click', downloadImage);
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
+        cancelBtn.addEventListener('click', cancelEdits); // ADDED: Attach listener for Cancel
     };
 
     function handleImageUpload(event) {
@@ -109,8 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
         reader.onload = e => {
             originalImageSrc = e.target.result;
-            // The very first image load is the first history state
-            history = [originalImageSrc]; 
+            history = [originalImageSrc];
             historyIndex = 0;
             updateUndoRedoButtons();
             resetAndProcess();
@@ -127,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
-    function processImage(isNewHistoryState = false) {
+    function processImage(isNewHistoryState = false) { // Changed default to false for smoother slider updates
         if (!originalImageSrc) return;
         
         const baseImage = new Image();
@@ -141,9 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let pixels = imageData.data;
 
             // Step 1: Apply "Adjust" filters to a COPY of the original pixel data
-            // We pass a copy to avoid modifying the array that holds the original data for subsequent calls
-            const adjustedPixels = applyAdjustments(new Uint8ClasedArray(pixels)); 
-            
+            // CRITICAL FIX: Changed Uint8ClasedArray to Uint8ClampedArray
+            const adjustedPixels = applyAdjustments(new Uint8ClampedArray(pixels)); 
+
             // Step 2: Run DStretch on the adjusted pixel data
             const finalPixelData = runDStretch(adjustedPixels);
 
@@ -254,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function performDstretch(c1, c2, c3) {
         const meanC1 = calculateMean(c1), meanC2 = calculateMean(c2), meanC3 = calculateMean(c3);
         const covMatrix = calculateCovarianceMatrix(c1, c2, c3, meanC1, meanC2, meanC3);
+        
         // Use a more robust check for 'math.eigs' since it's an external library function
         const { eigenvectors, eigenvalues } = (typeof math !== 'undefined' && math.eigs) 
             ? eigenDecomposition(covMatrix) 
@@ -271,7 +292,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let p3=v1*eigenvectors[0][2]+v2*eigenvectors[1][2]+v3*eigenvectors[2][2];
             
             // Stretch along the principal component axes (p1, p2, p3)
-            // The scaling factor should be proportional to stretchAmount and inversely proportional to the standard deviation (sqrt of eigenvalue)
             p1 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[0])||1));
             p2 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[1])||1));
             p3 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[2])||1));
@@ -288,7 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!history[historyIndex]) return;
         const link = document.createElement('a');
         link.download = 'DstretchPro_Image.png';
-        // Use the current image displayed, which should be the last one in history
         link.href = history[historyIndex]; 
         link.click();
     }
