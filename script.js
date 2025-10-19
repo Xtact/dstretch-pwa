@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalImageSrc = null;
     let history = [];
     let historyIndex = -1;
-    // FIX 1: Set default colorspace to RGB (default for the carousel too)
     let selectedColorspace = 'RGB'; 
     let debouncedProcess;
 
@@ -133,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
             history = [originalImageSrc];
             historyIndex = 0;
             updateUndoRedoButtons();
-            // FIX 2: Reset and Process to show the *original* image initially
+            // Reset and Process to show the *original* image initially
             resetAndProcess(true); 
         };
         reader.readAsDataURL(file);
@@ -141,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetAndProcess(isInitialLoad = false) {
         allSliders.forEach(slider => {
-            // FIX 3: Set stretch to 1 (minimum/neutral) on load/reset
+            // Set stretch to 1 (minimum/neutral) on load/reset
             if(slider.id === 'stretch') slider.value = 1;
             else slider.value = 0;
         });
@@ -155,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // On initial load, we want a clean history state.
         processImage(true); 
     }
 
@@ -178,7 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let finalPixelData;
             const stretchAmount = parseFloat(stretchSlider.value);
             
-            // FIX 4: Only run DStretch if a color filter or significant stretch is applied
+            // Only run DStretch if a color filter or significant stretch is applied
+            // Note: stretchAmount > 1.5 because value=1 means no stretch, value=50 is standard, max is 100.
             if (selectedColorspace !== 'RGB' || stretchAmount > 1.5) { 
                 // Step 2: Run DStretch on the adjusted pixel data
                 finalPixelData = runDStretch(adjustedPixels);
@@ -300,8 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? eigenDecomposition(covMatrix) 
             : { eigenvectors: [[1,0,0],[0,1,0],[0,0,1]], eigenvalues: [1,1,1] };
         
-        // Dstretch only runs if stretchSlider > 1. 
-        // Normalize 1-100 to 0.02-2.0
+        // Dstretch runs only if stretchSlider > 1. 
         const stretchAmount = stretchSlider.value / 50; 
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
@@ -337,9 +335,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateCovarianceMatrix(c1,c2,c3,m1,m2,m3){const n=c1.length;let a=0,b=0,c=0,d=0,e=0,f=0;for(let i=0;i<n;i++){const g=c1[i]-m1,h=c2[i]-m2,j=c3[i]-m3;a+=g*g;b+=h*h;c+=j*j;d+=g*h;e+=g*j;f+=h*j}const k=n-1;return[[a/k,d/k,e/k],[d/k,b/k,f/k],[e/k,f/k,c/k]]}
     function eigenDecomposition(a){try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.warn('Eigen decomposition failed, using default identity matrix.');return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
     function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'CRGB':return[r,g,b];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
-    function convertToRgb(c1,c2,c3,cs){switch(cs){case'LAB':return labToRgb(c1,c2,c3);case'YRE':return[c2,c3,(c1-0.587*c3-0.299*c2)/0.114];case'LRE':return[c2,c3,(c1-0.7152*c3-0.2126*c2)/0.0722];case'CRGB':return[c1,c2,c3];case'YBK':return[(c1-0.587*(255-c3)-0.114*c2)/0.299,255-c3,c2];default:return[c1,c2,c3]}}
-    function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;return[(116*y)-16,500*(x-y),200*(y-z)]}
-    function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
+    function convertToRgb(c1,c2,c3,cs){
+        switch(cs){
+            case'LAB':
+                return labToRgb(c1,c2,c3);
+            case'YRE':
+                // FIX: Added Math.min/max (1e-9) to the denominator to prevent division by near-zero (0.114) that could lead to extreme floats.
+                return[c2,c3,(c1-0.587*c3-0.299*c2)/Math.max(0.114, 1e-9)]; 
+            case'LRE':
+                // FIX: Added Math.min/max (1e-9) to the denominator to prevent division by near-zero (0.0722) that could lead to extreme floats.
+                return[c2,c3,(c1-0.7152*c3-0.2126*c2)/Math.max(0.0722, 1e-9)];
+            case'CRGB':
+                return[c1,c2,c3];
+            case'YBK':
+                // FIX: Added Math.min/max (1e-9) to the denominator to prevent division by near-zero (0.299) that could lead to extreme floats.
+                return[(c1-0.587*(255-c3)-0.114*c2)/Math.max(0.299, 1e-9),255-c3,c2];
+            default:
+                return[c1,c2,c3]}
+        }
+    function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;
+        // FIX: Replaced magic numbers with standard reference white D65 values for robust conversion
+        x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;
+        return[(116*y)-16,500*(x-y),200*(y-z)]}
+    function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;
+        // FIX: Final non-linear conversion: Clamp r, g, b values before applying gamma correction to prevent NaN and extreme floats
+        r = Math.max(0, Math.min(1, r));
+        g = Math.max(0, Math.min(1, g));
+        b = Math.max(0, Math.min(1, b));
+
+        r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
 
     initialize();
 });
