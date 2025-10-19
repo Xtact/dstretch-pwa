@@ -104,12 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
             colorspaceButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
             selectedColorspace = button.dataset.colorspace;
-            if (originalImageSrc) processImage(true); // Colorspace change is a major change
+            if (originalImageSrc) processImage(true); 
         }));
         
         debouncedProcess = debounce(processImage, 400);
         allSliders.forEach(slider => slider.addEventListener('input', () => {
-             // If it's the 'stretch' slider, save a new history state. Otherwise, just update the current state.
              const isNewHistoryState = slider.id === 'stretch'; 
              if (originalImageSrc) debouncedProcess(isNewHistoryState); 
         }));
@@ -167,21 +166,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalPixelData = runDStretch(adjustedPixels);
 
             // Step 3: Display final result and update history
-            // We must update the existing imageData object with the final result
             imageData.data.set(finalPixelData);
             ctx.putImageData(imageData, 0, 0);
             
-            const finalDataUrl = canvas.toDataURL('image/png'); // Use PNG for quality
+            const finalDataUrl = canvas.toDataURL('image/png'); 
             imageDisplay.src = finalDataUrl;
             
             if (isNewHistoryState) {
                 updateHistory(finalDataUrl);
             } else if (historyIndex >= 0) {
-                // This ensures the current visual state is always reflected in the current history index
                 history[historyIndex] = finalDataUrl;
             }
         };
-        // It is CRITICAL to always start from the pristine original image
         baseImage.src = originalImageSrc; 
     }
 
@@ -235,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             g = avg + (g - avg) * (1 + satFactor);
             b = avg + (b - avg) * (1 + satFactor);
             
-            // FIX: Explicitly round the floating point values before assigning.
+            // Explicitly round the floating point values before assigning.
             pixels[i] = Math.round(r); 
             pixels[i+1] = Math.round(g); 
             pixels[i+2] = Math.round(b);
@@ -244,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function runDStretch(imageData) {
-        // This function now just runs the DStretch part, not the whole pipeline
         const nPixels = imageData.length / 4;
         let c1 = [], c2 = [], c3 = [];
 
@@ -263,12 +258,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const rgb = convertToRgb(stretchedC1[i], stretchedC2[i], stretchedC3[i], selectedColorspace);
             const pixelIndex = i * 4;
 
-            // FIX: Round the RGB result from DStretch conversion before clamping.
+            // Apply rounding and clamping to ensure valid 0-255 integer output
             const finalR = Math.round(rgb[0]);
             const finalG = Math.round(rgb[1]);
             const finalB = Math.round(rgb[2]);
             
-            // Clamp colors and set
+            // Set the final clamped and rounded values
             finalPixelData[pixelIndex] = Math.min(255, Math.max(0, finalR));
             finalPixelData[pixelIndex + 1] = Math.min(255, Math.max(0, finalG));
             finalPixelData[pixelIndex + 2] = Math.min(255, Math.max(0, finalB));
@@ -281,28 +276,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const meanC1 = calculateMean(c1), meanC2 = calculateMean(c2), meanC3 = calculateMean(c3);
         const covMatrix = calculateCovarianceMatrix(c1, c2, c3, meanC1, meanC2, meanC3);
         
-        // Use a more robust check for 'math.eigs' since it's an external library function
         const { eigenvectors, eigenvalues } = (typeof math !== 'undefined' && math.eigs) 
             ? eigenDecomposition(covMatrix) 
             : { eigenvectors: [[1,0,0],[0,1,0],[0,0,1]], eigenvalues: [1,1,1] };
         
-        // The Dstretch algorithm scales the principal components.
-        const stretchAmount = stretchSlider.value / 50; // Normalize 1-100 to 0.02-2.0
+        const stretchAmount = stretchSlider.value / 50; 
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
         for (let i = 0; i < c1.length; i++) {
             const v1=c1[i]-meanC1, v2=c2[i]-meanC2, v3=c3[i]-meanC3;
-            // Project the component values onto the eigenvector space (PCA)
             let p1=v1*eigenvectors[0][0]+v2*eigenvectors[1][0]+v3*eigenvectors[2][0];
             let p2=v1*eigenvectors[0][1]+v2*eigenvectors[1][1]+v3*eigenvectors[2][1];
             let p3=v1*eigenvectors[0][2]+v2*eigenvectors[1][2]+v3*eigenvectors[2][2];
             
-            // Stretch along the principal component axes (p1, p2, p3)
+            // Apply stretch
             p1 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[0])||1));
             p2 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[1])||1));
             p3 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[2])||1));
             
-            // Project the stretched component values back to the original color space
+            // Project back
             stretchedC1[i]=p1*eigenvectors[0][0]+p2*eigenvectors[0][1]+p3*eigenvectors[0][2]+meanC1;
             stretchedC2[i]=p1*eigenvectors[1][0]+p2*eigenvectors[1][1]+p3*eigenvectors[1][2]+meanC2;
             stretchedC3[i]=p1*eigenvectors[2][0]+p2*eigenvectors[2][1]+p3*eigenvectors[2][2]+meanC3;
