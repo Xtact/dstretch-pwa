@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
     const downloadBtn = document.getElementById('download-btn');
-    const cancelBtn = document.getElementById('cancel-btn'); 
     
     // All Sliders
     const allSliders = document.querySelectorAll('input[type="range"]');
@@ -24,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalImageSrc = null;
     let history = [];
     let historyIndex = -1;
-    let selectedColorspace = 'RGB'; 
+    let selectedColorspace = 'RGB';
     let debouncedProcess;
 
     // --- DEBOUNCE UTILITY ---
@@ -66,28 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Implemented Cancel Edits Logic
-    const cancelEdits = () => {
-        if (!originalImageSrc) return;
-
-        // Reset all sliders to their default values
-        resetAndProcess(); 
-
-        // Reset the history to only the original image state
-        history = [originalImageSrc];
-        historyIndex = 0;
-        
-        // Update the display to the original image source
-        imageDisplay.src = originalImageSrc;
-
-        // Re-run processImage with the reset values 
-        processImage(false); 
-        
-        updateUndoRedoButtons();
-    }
-    // END Cancel Edits Logic
-
-
     // --- CORE APP LOGIC ---
     const initialize = () => {
         navTabs.forEach(tab => tab.addEventListener('click', () => {
@@ -104,13 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
             colorspaceButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
             selectedColorspace = button.dataset.colorspace;
-            if (originalImageSrc) processImage(true); 
+            if (originalImageSrc) debouncedProcess(true);
         }));
         
         debouncedProcess = debounce(processImage, 400);
         allSliders.forEach(slider => slider.addEventListener('input', () => {
-             const isNewHistoryState = slider.id === 'stretch'; 
-             if (originalImageSrc) debouncedProcess(isNewHistoryState); 
+             if (originalImageSrc) debouncedProcess(slider.id === 'stretch'); 
         }));
 
         imageDisplay.addEventListener('pointerdown', () => { if (originalImageSrc && history.length > 0) imageDisplay.src = originalImageSrc; });
@@ -120,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.addEventListener('click', downloadImage);
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
-        cancelBtn.addEventListener('click', cancelEdits); 
     };
 
     function handleImageUpload(event) {
@@ -132,33 +107,21 @@ document.addEventListener('DOMContentLoaded', () => {
             history = [originalImageSrc];
             historyIndex = 0;
             updateUndoRedoButtons();
-            // Reset and Process to show the *original* image initially
-            resetAndProcess(true); 
+            resetAndProcess();
         };
         reader.readAsDataURL(file);
     }
 
-    function resetAndProcess(isInitialLoad = false) {
+    function resetAndProcess() {
         allSliders.forEach(slider => {
-            // Set stretch to 1 (minimum/neutral) on load/reset
-            if(slider.id === 'stretch') slider.value = 1;
+            if(slider.id === 'stretch') slider.value = 50;
             else slider.value = 0;
         });
-
-        // Ensure RGB button is visually and functionally active on reset
-        colorspaceButtons.forEach(btn => {
-            btn.classList.remove('active');
-            if(btn.dataset.colorspace === 'RGB') {
-                btn.classList.add('active');
-                selectedColorspace = 'RGB';
-            }
-        });
-        
-        processImage(true); 
+        processImage(true);
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
-    function processImage(isNewHistoryState = false) { 
+    function processImage(isNewHistoryState = true) {
         if (!originalImageSrc) return;
         
         const baseImage = new Image();
@@ -170,44 +133,27 @@ document.addEventListener('DOMContentLoaded', () => {
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let pixels = imageData.data;
 
-            // Step 1: Apply "Adjust" filters 
-            const adjustedPixels = applyAdjustments(new Uint8ClampedArray(pixels)); 
-            
-            let finalPixelData;
-            const stretchAmount = parseFloat(stretchSlider.value);
-            
-            // Only run DStretch if a color filter or significant stretch is applied
-            // Use stretchAmount > 1.5 because slider min is 1 (no stretch).
-            if (selectedColorspace !== 'RGB' || stretchAmount > 1.5) { 
-                // Step 2: Run DStretch on the adjusted pixel data
-                finalPixelData = runDStretch(adjustedPixels);
-            } else {
-                // Step 2 Alternate: If in RGB and minimal stretch, the final data is just the adjusted data
-                finalPixelData = adjustedPixels;
-            }
+            // Step 1: Apply "Adjust" filters directly to pixel data
+            applyAdjustments(pixels);
 
+            // Step 2: Run DStretch on the adjusted pixel data
+            const finalPixelData = runDStretch(pixels);
 
             // Step 3: Display final result and update history
             imageData.data.set(finalPixelData);
             ctx.putImageData(imageData, 0, 0);
-            
-            const finalDataUrl = canvas.toDataURL('image/png'); 
+            const finalDataUrl = canvas.toDataURL();
             imageDisplay.src = finalDataUrl;
             
             if (isNewHistoryState) {
                 updateHistory(finalDataUrl);
-            } else if (historyIndex >= 0) {
+            } else {
                 history[historyIndex] = finalDataUrl;
             }
         };
-        baseImage.src = originalImageSrc; 
+        baseImage.src = originalImageSrc; // Always start from the pristine original
     }
 
-    /**
-     * Applies standard image adjustments (Exposure, Contrast, etc.) to the pixel data.
-     * @param {Uint8ClampedArray} pixels - The pixel data array (R, G, B, A, R, G, B, A, ...)
-     * @returns {Uint8ClampedArray} The adjusted pixel data.
-     */
     function applyAdjustments(pixels) {
         const exposure = parseFloat(document.getElementById('exposure').value);
         const shadows = parseFloat(document.getElementById('shadows').value);
@@ -218,51 +164,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
         const satFactor = saturation / 100;
-        const totalBrightness = exposure + brightness;
 
         for (let i = 0; i < pixels.length; i += 4) {
             let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
 
-            // Exposure & Brightness
+            // Exposure & Brightness are similar, let's combine
+            const totalBrightness = exposure + brightness;
             r += totalBrightness; g += totalBrightness; b += totalBrightness;
 
             // Shadows: Simple lift for darker pixels
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
             if (luma < 128) {
-                const shadowFactor = shadows * (1 - luma / 128) * 0.5;
+                const shadowFactor = shadows * (1 - luma / 128);
                 r += shadowFactor; g += shadowFactor; b += shadowFactor;
             }
 
-            // Contrast & Black Point (apply contrast first)
+            // Contrast & Black Point
             r = contrastFactor * (r - 128) + 128;
             g = contrastFactor * (g - 128) + 128;
             b = contrastFactor * (b - 128) + 128;
-            
-            // Black Point (clip dark colors to black point)
-            const minClip = blackPoint * 255;
-            r = Math.max(r, minClip);
-            g = Math.max(g, minClip);
-            b = Math.max(b, minClip);
-            
+            r = Math.max(r, r * blackPoint);
+            g = Math.max(g, g * blackPoint);
+            b = Math.max(b, b * blackPoint);
+
             // Saturation
             const avg = (r + g + b) / 3;
             r = avg + (r - avg) * (1 + satFactor);
             g = avg + (g - avg) * (1 + satFactor);
             b = avg + (b - avg) * (1 + satFactor);
-            
-            // Explicitly round the floating point values before assigning.
-            pixels[i] = Math.round(r); 
-            pixels[i+1] = Math.round(g); 
-            pixels[i+2] = Math.round(b);
+
+            pixels[i] = r; pixels[i+1] = g; pixels[i+2] = b;
         }
-        return pixels; 
     }
     
     function runDStretch(imageData) {
+        // This function now just runs the DStretch part, not the whole pipeline
         const nPixels = imageData.length / 4;
         let c1 = [], c2 = [], c3 = [];
 
-        // Convert the (potentially adjusted) RGB data to the selected color space
         for (let i = 0; i < nPixels; i++) {
             const r = imageData[i * 4], g = imageData[i * 4 + 1], b = imageData[i * 4 + 2];
             const converted = convertRgbTo(r, g, b, selectedColorspace);
@@ -272,21 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const { stretchedC1, stretchedC2, stretchedC3 } = performDstretch(c1, c2, c3);
 
         const finalPixelData = new Uint8ClampedArray(imageData.length);
-        // Convert the stretched color space components back to RGB
         for (let i = 0; i < nPixels; i++) {
             const rgb = convertToRgb(stretchedC1[i], stretchedC2[i], stretchedC3[i], selectedColorspace);
             const pixelIndex = i * 4;
-
-            // Apply rounding and clamping to ensure valid 0-255 integer output
-            const finalR = Math.round(rgb[0]);
-            const finalG = Math.round(rgb[1]);
-            const finalB = Math.round(rgb[2]);
-            
-            // Set the final clamped and rounded values
-            finalPixelData[pixelIndex] = Math.min(255, Math.max(0, finalR));
-            finalPixelData[pixelIndex + 1] = Math.min(255, Math.max(0, finalG));
-            finalPixelData[pixelIndex + 2] = Math.min(255, Math.max(0, finalB));
-            finalPixelData[pixelIndex + 3] = 255; // Keep alpha channel opaque
+            finalPixelData[pixelIndex] = rgb[0];
+            finalPixelData[pixelIndex + 1] = rgb[1];
+            finalPixelData[pixelIndex + 2] = rgb[2];
+            finalPixelData[pixelIndex + 3] = 255;
         }
         return finalPixelData;
     }
@@ -294,24 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function performDstretch(c1, c2, c3) {
         const meanC1 = calculateMean(c1), meanC2 = calculateMean(c2), meanC3 = calculateMean(c3);
         const covMatrix = calculateCovarianceMatrix(c1, c2, c3, meanC1, meanC2, meanC3);
+        const { eigenvectors, eigenvalues } = eigenDecomposition(covMatrix);
         
-        const { eigenvectors, eigenvalues } = (typeof math !== 'undefined' && math.eigs) 
-            ? eigenDecomposition(covMatrix) 
-            : { eigenvectors: [[1,0,0],[0,1,0],[0,0,1]], eigenvalues: [1,1,1] };
-        
-        // Dstretch runs only if stretchSlider > 1. 
-        const stretchAmount = stretchSlider.value / 50; 
-        
-        // The first eigenvalue (eigenvalues[0]) is the largest variance.
-        const largestVariance = Math.abs(eigenvalues[0]) || 1; 
-
-        // FIX: Calculate the stabilization variance as a small fraction (1%) of the largest variance.
-        // This is a mathematically consistent and robust stabilization term (Variance + Variance).
-        const stabilizationVariance = largestVariance * 0.01;
-        
-        // P1 Scale Factor: Remains stable as it divides by the largest variance.
-        const p1ScaleFactor = stretchAmount / Math.sqrt(largestVariance);
-        
+        const stretchAmount = stretchSlider.value;
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
         for (let i = 0; i < c1.length; i++) {
@@ -319,15 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let p1=v1*eigenvectors[0][0]+v2*eigenvectors[1][0]+v3*eigenvectors[2][0];
             let p2=v1*eigenvectors[0][1]+v2*eigenvectors[1][1]+v3*eigenvectors[2][1];
             let p3=v1*eigenvectors[0][2]+v2*eigenvectors[1][2]+v3*eigenvectors[2][2];
-            
-            // Apply stretch using stabilized scaling factors
-            p1 *= p1ScaleFactor;
-            
-            // P2 and P3 scaling factors use the stabilization variance floor.
-            p2 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[1]) + stabilizationVariance);
-            p3 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[2]) + stabilizationVariance);
-            
-            // Project back
+            p1 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[0])||1));
+            p2 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[1])||1));
+            p3 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[2])||1));
             stretchedC1[i]=p1*eigenvectors[0][0]+p2*eigenvectors[0][1]+p3*eigenvectors[0][2]+meanC1;
             stretchedC2[i]=p1*eigenvectors[1][0]+p2*eigenvectors[1][1]+p3*eigenvectors[1][2]+meanC2;
             stretchedC3[i]=p1*eigenvectors[2][0]+p2*eigenvectors[2][1]+p3*eigenvectors[2][2]+meanC3;
@@ -339,39 +249,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!history[historyIndex]) return;
         const link = document.createElement('a');
         link.download = 'DstretchPro_Image.png';
-        link.href = history[historyIndex]; 
+        link.href = history[historyIndex];
         link.click();
     }
 
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified for brevity) ---
     function calculateMean(a){return a.reduce((b,c)=>b+c,0)/a.length}
     function calculateCovarianceMatrix(c1,c2,c3,m1,m2,m3){const n=c1.length;let a=0,b=0,c=0,d=0,e=0,f=0;for(let i=0;i<n;i++){const g=c1[i]-m1,h=c2[i]-m2,j=c3[i]-m3;a+=g*g;b+=h*h;c+=j*j;d+=g*h;e+=g*j;f+=h*j}const k=n-1;return[[a/k,d/k,e/k],[d/k,b/k,f/k],[e/k,f/k,c/k]]}
-    function eigenDecomposition(a){try{const{vectors,values}=typeof math !== 'undefined' && math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.warn('Eigen decomposition failed, using default identity matrix.');return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
-    function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'CRGB':return[r,g,b];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
-    function convertToRgb(c1,c2,c3,cs){
-        switch(cs){
-            case'LAB':
-                return labToRgb(c1,c2,c3);
-            case'YRE':
-                return[c2,c3,(c1-0.587*c3-0.299*c2)/Math.max(0.114, 1e-9)]; 
-            case'LRE':
-                return[c2,c3,(c1-0.7152*c3-0.2126*c2)/Math.max(0.0722, 1e-9)];
-            case'CRGB':
-                return[c1,c2,c3];
-            case'YBK':
-                return[(c1-0.587*(255-c3)-0.114*c2)/Math.max(0.299, 1e-9),255-c3,c2];
-            default:
-                return[c1,c2,c3]}
-        }
-    function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;
-        x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;
-        return[(116*y)-16,500*(x-y),200*(y-z)]}
-    function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;
-        r = Math.max(0, Math.min(1, r));
-        g = Math.max(0, Math.min(1, g));
-        b = Math.max(0, Math.min(1, b));
-
-        r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
+    function eigenDecomposition(a){try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
+    function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
+    function convertToRgb(c1,c2,c3,cs){switch(cs){case'LAB':return labToRgb(c1,c2,c3);case'YRE':return[c2,c3,(c1-0.587*c3-0.299*c2)/0.114];case'LRE':return[c2,c3,(c1-0.7152*c3-0.2126*c2)/0.0722];case'YBK':return[(c1-0.587*(255-c3)-0.114*c2)/0.299,255-c3,c2];default:return[c1,c2,c3]}}
+    function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;return[(116*y)-16,500*(x-y),200*(y-z)]}
+    function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;r=r>0.0031308?1.055*Math.pow(r,1/2.4)-0.055:12.92*r;g=g>0.0031308?1.055*Math.pow(g,1/2.4)-0.055:12.92*g;b=b>0.0031308?1.055*Math.pow(b,1/2.4)-0.055:12.92*b;return[r*255,g*255,b*255]}
 
     initialize();
 });
