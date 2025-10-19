@@ -1,27 +1,15 @@
 /* General Setup */
-:root {
-    --header-height: 50px;
-    --footer-height: 220px;
-    --nav-height: 50px;
-}
-body, html {
-    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #121212; color: #fff; user-select: none; -webkit-user-select: none;
-}
+:root { --header-height: 50px; --footer-height: 220px; --nav-height: 50px; }
+body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #fff; }
 .app-container { display: flex; flex-direction: column; height: 100%; }
 canvas { display: none; }
 
 /* Header */
-.app-header {
-    height: var(--header-height); display: grid; grid-template-columns: auto auto 1fr auto;
-    align-items: center; padding: 0 15px; background-color: #1c1c1e;
-    border-bottom: 1px solid #38383a; gap: 15px; flex-shrink: 0;
-}
+.app-header { height: var(--header-height); display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; padding: 0 15px; background-color: #1c1c1e; border-bottom: 1px solid #38383a; gap: 15px; flex-shrink: 0; }
 .header-title { font-weight: 600; text-align: center; font-size: 1rem; }
-.header-btn, .icon-btn { background: none; border: none; color: #007aff; font-size: 1rem; cursor: pointer; padding: 5px; }
-.icon-btn { font-size: 1.5rem; line-height: 1; }
-.icon-btn:disabled, .header-btn:disabled { color: #555; cursor: not-allowed; }
+.header-btn, .icon-btn { background: none; border: none; color: #007aff; font-size: 1rem; cursor: pointer; }
+.icon-btn { font-size: 1.5rem; line-height: 1; padding: 5px; color: #007aff;}
+.icon-btn:disabled { color: #555; cursor: not-allowed; }
 .history-controls { display: flex; gap: 10px; }
 
 /* Image Workspace */
@@ -35,10 +23,12 @@ canvas { display: none; }
 .control-panel.active { display: block; }
 
 /* Slider Redesign */
-.slider-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-.slider label { display: block; font-size: 0.8rem; color: #ccc; margin-bottom: 4px; }
+.slider-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.slider { display: grid; grid-template-columns: 85px 1fr; align-items: center; gap: 10px; }
+.slider label { font-size: 0.8rem; text-align: right; color: #ccc; }
 .slider input[type="range"] { width: 100%; margin: 0; }
 input[type=range][disabled] { opacity: 0.4; }
+
 
 /* Main Navigation Tabs */
 .main-nav { height: var(--nav-height); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #38383a; flex-shrink: 0; }
@@ -52,6 +42,6 @@ input[type=range][disabled] { opacity: 0.4; }
 
 /* Responsive Design for Landscape */
 @media (orientation: landscape) {
-    :root { --footer-height: 200px; }
+    :root { --footer-height: 180px; }
     .slider-grid { grid-template-columns: 1fr 1fr; column-gap: 20px;}
 }
