@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
     const downloadBtn = document.getElementById('download-btn');
-    const cancelBtn = document.getElementById('cancel-btn'); // ADDED: Get cancel button
+    const cancelBtn = document.getElementById('cancel-btn'); 
     
     // All Sliders
     const allSliders = document.querySelectorAll('input[type="range"]');
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ADDED: Cancel Edits Logic
+    // Implemented Cancel Edits Logic
     const cancelEdits = () => {
         if (!originalImageSrc) return;
 
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateUndoRedoButtons();
     }
-    // END ADDED: Cancel Edits Logic
+    // END Cancel Edits Logic
 
 
     // --- CORE APP LOGIC ---
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.addEventListener('click', downloadImage);
         undoBtn.addEventListener('click', undo);
         redoBtn.addEventListener('click', redo);
-        cancelBtn.addEventListener('click', cancelEdits); // ADDED: Attach listener for Cancel
+        cancelBtn.addEventListener('click', cancelEdits); 
     };
 
     function handleImageUpload(event) {
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- MAIN IMAGE PROCESSING PIPELINE ---
-    function processImage(isNewHistoryState = false) { // Changed default to false for smoother slider updates
+    function processImage(isNewHistoryState = false) { 
         if (!originalImageSrc) return;
         
         const baseImage = new Image();
@@ -161,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let pixels = imageData.data;
 
             // Step 1: Apply "Adjust" filters to a COPY of the original pixel data
-            // CRITICAL FIX: Changed Uint8ClasedArray to Uint8ClampedArray
             const adjustedPixels = applyAdjustments(new Uint8ClampedArray(pixels)); 
 
             // Step 2: Run DStretch on the adjusted pixel data
@@ -205,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalBrightness = exposure + brightness;
 
         for (let i = 0; i < pixels.length; i += 4) {
+            // Read values as floats for calculation
             let r = pixels[i], g = pixels[i+1], b = pixels[i+2];
 
             // Exposure & Brightness
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
             if (luma < 128) {
                 // Apply a lift that is stronger for darker pixels
-                const shadowFactor = shadows * (1 - luma / 128) * 0.5; // Adjusted factor for subtlety
+                const shadowFactor = shadows * (1 - luma / 128) * 0.5;
                 r += shadowFactor; g += shadowFactor; b += shadowFactor;
             }
 
@@ -235,10 +235,11 @@ document.addEventListener('DOMContentLoaded', () => {
             g = avg + (g - avg) * (1 + satFactor);
             b = avg + (b - avg) * (1 + satFactor);
             
-            // Clamp and update
-            pixels[i] = Math.min(255, Math.max(0, r)); 
-            pixels[i+1] = Math.min(255, Math.max(0, g)); 
-            pixels[i+2] = Math.min(255, Math.max(0, b));
+            // FIX: Explicitly round the floating point values before assigning.
+            // Uint8ClampedArray will still handle the 0-255 clamping for us.
+            pixels[i] = Math.round(r); 
+            pixels[i+1] = Math.round(g); 
+            pixels[i+2] = Math.round(b);
         }
         return pixels; // Return the modified array
     }
