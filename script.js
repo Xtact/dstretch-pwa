@@ -309,6 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // FIX: Calculate the stabilization factor (STABILIZED VARIANCE)
         // The standard deviation of the first component (eigenvalues[0]) is used to cap the
         // maximum stretch applied to the weaker components (eigenvalues[1] and [2]).
+        // The value used here is the *square* of the stabilized standard deviation, which is the variance.
+        // It's added to the denominator's Math.sqrt(abs(eigenvalue)) inside the loop.
         const stableVariance = Math.sqrt(Math.abs(eigenvalues[0])) * 0.1; 
         
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
@@ -324,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
             p1 *= p1ScaleFactor;
             
             // P2 and P3 use a stabilized denominator, preventing division by near zero.
-            // This caps the maximum stretch applied to P2 and P3 based on the largest variance (P1)
+            // stableVariance is added to the absolute eigenvalue (variance) before the square root.
             p2 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[1]) + stableVariance);
             p3 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[2]) + stableVariance);
             
@@ -347,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UTILITY, MATH, AND COLORSPACE FUNCTIONS (minified for brevity) ---
     function calculateMean(a){return a.reduce((b,c)=>b+c,0)/a.length}
     function calculateCovarianceMatrix(c1,c2,c3,m1,m2,m3){const n=c1.length;let a=0,b=0,c=0,d=0,e=0,f=0;for(let i=0;i<n;i++){const g=c1[i]-m1,h=c2[i]-m2,j=c3[i]-m3;a+=g*g;b+=h*h;c+=j*j;d+=g*h;e+=g*j;f+=h*j}const k=n-1;return[[a/k,d/k,e/k],[d/k,b/k,f/k],[e/k,f/k,c/k]]}
-    function eigenDecomposition(a){try{const{vectors,values}=math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.warn('Eigen decomposition failed, using default identity matrix.');return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
+    function eigenDecomposition(a){try{const{vectors,values}=typeof math !== 'undefined' && math.eigs(a);return{eigenvectors:vectors,eigenvalues:values}}catch(c){console.warn('Eigen decomposition failed, using default identity matrix.');return{eigenvectors:[[1,0,0],[0,1,0],[0,0,1]],eigenvalues:[1,1,1]}}}
     function convertRgbTo(r,g,b,cs){switch(cs){case'LAB':return rgbToLab(r,g,b);case'YRE':return[0.299*r+0.587*g+0.114*b,r,g];case'LRE':return[0.2126*r+0.7152*g+0.0722*b,r,g];case'CRGB':return[r,g,b];case'YBK':return[0.299*r+0.587*g+0.114*b,b,255-g];default:return[r,g,b]}}
     function convertToRgb(c1,c2,c3,cs){
         switch(cs){
