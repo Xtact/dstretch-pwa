@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const stretchAmount = parseFloat(stretchSlider.value);
             
             // Only run DStretch if a color filter or significant stretch is applied
-            // Note: stretchAmount > 1.5 because value=1 means no stretch, value=50 is standard, max is 100.
+            // Use stretchAmount > 1.5 because slider min is 1 (no stretch).
             if (selectedColorspace !== 'RGB' || stretchAmount > 1.5) { 
                 // Step 2: Run DStretch on the adjusted pixel data
                 finalPixelData = runDStretch(adjustedPixels);
@@ -301,6 +301,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Dstretch runs only if stretchSlider > 1. 
         const stretchAmount = stretchSlider.value / 50; 
+        
+        // FIX: Calculate the scaling factor for the first principal component (P1 Scale Factor)
+        // This factor is always stable since eigenvalues[0] (variance) is the largest.
+        const p1ScaleFactor = stretchAmount / Math.sqrt(Math.abs(eigenvalues[0]) || 1);
+        
+        // FIX: Calculate the stabilization factor (STABILIZED VARIANCE)
+        // The standard deviation of the first component (eigenvalues[0]) is used to cap the
+        // maximum stretch applied to the weaker components (eigenvalues[1] and [2]).
+        const stableVariance = Math.sqrt(Math.abs(eigenvalues[0])) * 0.1; 
+        
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
         for (let i = 0; i < c1.length; i++) {
@@ -309,10 +319,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let p2=v1*eigenvectors[0][1]+v2*eigenvectors[1][1]+v3*eigenvectors[2][1];
             let p3=v1*eigenvectors[0][2]+v2*eigenvectors[1][2]+v3*eigenvectors[2][2];
             
-            // Apply stretch
-            p1 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[0])||1));
-            p2 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[1])||1));
-            p3 *= (stretchAmount/Math.sqrt(Math.abs(eigenvalues[2])||1));
+            // Apply stretch using stabilized scaling factors
+            // P1 uses the regular, stable scale factor
+            p1 *= p1ScaleFactor;
+            
+            // P2 and P3 use a stabilized denominator, preventing division by near zero.
+            // This caps the maximum stretch applied to P2 and P3 based on the largest variance (P1)
+            p2 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[1]) + stableVariance);
+            p3 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[2]) + stableVariance);
             
             // Project back
             stretchedC1[i]=p1*eigenvectors[0][0]+p2*eigenvectors[0][1]+p3*eigenvectors[0][2]+meanC1;
@@ -340,25 +354,20 @@ document.addEventListener('DOMContentLoaded', () => {
             case'LAB':
                 return labToRgb(c1,c2,c3);
             case'YRE':
-                // FIX: Added Math.min/max (1e-9) to the denominator to prevent division by near-zero (0.114) that could lead to extreme floats.
                 return[c2,c3,(c1-0.587*c3-0.299*c2)/Math.max(0.114, 1e-9)]; 
             case'LRE':
-                // FIX: Added Math.min/max (1e-9) to the denominator to prevent division by near-zero (0.0722) that could lead to extreme floats.
                 return[c2,c3,(c1-0.7152*c3-0.2126*c2)/Math.max(0.0722, 1e-9)];
             case'CRGB':
                 return[c1,c2,c3];
             case'YBK':
-                // FIX: Added Math.min/max (1e-9) to the denominator to prevent division by near-zero (0.299) that could lead to extreme floats.
                 return[(c1-0.587*(255-c3)-0.114*c2)/Math.max(0.299, 1e-9),255-c3,c2];
             default:
                 return[c1,c2,c3]}
         }
     function rgbToLab(r,g,b){r/=255;g/=255;b/=255;r=r>0.04045?Math.pow((r+0.055)/1.055,2.4):r/12.92;g=g>0.04045?Math.pow((g+0.055)/1.055,2.4):g/12.92;b=b>0.04045?Math.pow((b+0.055)/1.055,2.4):b/12.92;let x=(r*0.4124+g*0.3576+b*0.1805)*100,y=(r*0.2126+g*0.7152+b*0.0722)*100,z=(r*0.0193+g*0.1192+b*0.9505)*100;x/=95.047;y/=100;z/=108.883;
-        // FIX: Replaced magic numbers with standard reference white D65 values for robust conversion
         x=x>0.008856?Math.cbrt(x):7.787*x+16/116;y=y>0.008856?Math.cbrt(y):7.787*y+16/116;z=z>0.008856?Math.cbrt(z):7.787*z+16/116;
         return[(116*y)-16,500*(x-y),200*(y-z)]}
     function labToRgb(l,a,b_lab){let y=(l+16)/116,x=a/500+y,z=y-b_lab/200;const k=x*x*x,m=y*y*y,n=z*z*z;x=k>0.008856?k:(x-16/116)/7.787;y=m>0.008856?m:(y-16/116)/7.787;z=n>0.008856?n:(z-16/116)/7.787;x*=95.047;y*=100;z*=108.883;x/=100;y/=100;z/=100;let r=x*3.2406+y*-1.5372+z*-0.4986,g=x*-0.9689+y*1.8758+z*0.0415,b=x*0.0557+y*-0.2040+z*1.0570;
-        // FIX: Final non-linear conversion: Clamp r, g, b values before applying gamma correction to prevent NaN and extreme floats
         r = Math.max(0, Math.min(1, r));
         g = Math.max(0, Math.min(1, g));
         b = Math.max(0, Math.min(1, b));
