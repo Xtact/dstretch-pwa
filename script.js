@@ -302,16 +302,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Dstretch runs only if stretchSlider > 1. 
         const stretchAmount = stretchSlider.value / 50; 
         
-        // FIX: Calculate the scaling factor for the first principal component (P1 Scale Factor)
-        // This factor is always stable since eigenvalues[0] (variance) is the largest.
-        const p1ScaleFactor = stretchAmount / Math.sqrt(Math.abs(eigenvalues[0]) || 1);
+        // The first eigenvalue (eigenvalues[0]) is the largest variance.
+        const largestVariance = Math.abs(eigenvalues[0]) || 1; 
+
+        // FIX: Calculate the stabilization variance as a small fraction (1%) of the largest variance.
+        // This is a mathematically consistent and robust stabilization term (Variance + Variance).
+        const stabilizationVariance = largestVariance * 0.01;
         
-        // FIX: Calculate the stabilization factor (STABILIZED VARIANCE)
-        // The standard deviation of the first component (eigenvalues[0]) is used to cap the
-        // maximum stretch applied to the weaker components (eigenvalues[1] and [2]).
-        // The value used here is the *square* of the stabilized standard deviation, which is the variance.
-        // It's added to the denominator's Math.sqrt(abs(eigenvalue)) inside the loop.
-        const stableVariance = Math.sqrt(Math.abs(eigenvalues[0])) * 0.1; 
+        // P1 Scale Factor: Remains stable as it divides by the largest variance.
+        const p1ScaleFactor = stretchAmount / Math.sqrt(largestVariance);
         
         let stretchedC1 = [], stretchedC2 = [], stretchedC3 = [];
 
@@ -322,13 +321,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let p3=v1*eigenvectors[0][2]+v2*eigenvectors[1][2]+v3*eigenvectors[2][2];
             
             // Apply stretch using stabilized scaling factors
-            // P1 uses the regular, stable scale factor
             p1 *= p1ScaleFactor;
             
-            // P2 and P3 use a stabilized denominator, preventing division by near zero.
-            // stableVariance is added to the absolute eigenvalue (variance) before the square root.
-            p2 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[1]) + stableVariance);
-            p3 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[2]) + stableVariance);
+            // P2 and P3 scaling factors use the stabilization variance floor.
+            p2 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[1]) + stabilizationVariance);
+            p3 *= stretchAmount / Math.sqrt(Math.abs(eigenvalues[2]) + stabilizationVariance);
             
             // Project back
             stretchedC1[i]=p1*eigenvectors[0][0]+p2*eigenvectors[0][1]+p3*eigenvectors[0][2]+meanC1;
